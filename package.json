@@ -2,7 +2,7 @@
   "name": "vscode-review-relay",
   "displayName": "Review Relay",
   "description": "Live review comments shared between VS Code and local AI tools.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "statiolake",
   "license": "MIT",
   "author": "statiolake",
@@ -65,18 +65,6 @@
         { "command": "reviewRelay.saveComment", "group": "inline@1", "when": "commentController == review-relay && comment == editing" },
         { "command": "reviewRelay.cancelEditComment", "group": "inline@2", "when": "commentController == review-relay && comment == editing" }
       ]
-    },
-    "configuration": {
-      "title": "Review Relay",
-      "properties": {
-        "reviewRelay.server.port": {
-          "type": "number",
-          "default": 47658,
-          "minimum": 0,
-          "maximum": 65535,
-          "description": "Local HTTP API port. Use 0 to select a free port."
-        }
-      }
     }
   },
   "scripts": {

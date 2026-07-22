@@ -10,11 +10,19 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
-const defaultEndpoint = "http://127.0.0.1:47658"
+type sessionDescriptor struct {
+	Version          int      `json:"version"`
+	ID               string   `json:"id"`
+	Endpoint         string   `json:"endpoint"`
+	WorkspaceFolders []string `json:"workspaceFolders"`
+}
+
+var sessionsPath = filepath.Join(os.TempDir(), "vscode-review-relay", "sessions")
 
 type client struct {
 	endpoint string
@@ -32,7 +40,8 @@ func main() {
 func run(args []string, out io.Writer) error {
 	root := flag.NewFlagSet("review-relay", flag.ContinueOnError)
 	root.SetOutput(io.Discard)
-	endpoint := root.String("endpoint", envOrDefault("REVIEW_RELAY_ENDPOINT", defaultEndpoint), "Review Relay API endpoint")
+	endpoint := root.String("endpoint", os.Getenv("REVIEW_RELAY_ENDPOINT"), "Review Relay API endpoint (overrides workspace discovery)")
+	workspace := root.String("workspace", "", "workspace folder path (defaults to the current directory)")
 	if err := root.Parse(args); errors.Is(err, flag.ErrHelp) {
 		fmt.Fprintln(out, usage())
 		return nil
@@ -43,7 +52,22 @@ func run(args []string, out io.Writer) error {
 	if len(remaining) == 0 {
 		return errors.New(usage())
 	}
-	c := client{endpoint: strings.TrimRight(*endpoint, "/"), http: &http.Client{Timeout: 5 * time.Second}, out: out}
+	if remaining[0] == "help" || remaining[0] == "--help" || remaining[0] == "-h" {
+		fmt.Fprintln(out, usage())
+		return nil
+	}
+	if remaining[0] != "health" && remaining[0] != "comments" && remaining[0] != "navigate" {
+		return fmt.Errorf("unknown command %q\n\n%s", remaining[0], usage())
+	}
+	resolvedEndpoint := *endpoint
+	if resolvedEndpoint == "" {
+		var err error
+		resolvedEndpoint, err = discoverEndpoint(*workspace)
+		if err != nil {
+			return err
+		}
+	}
+	c := client{endpoint: strings.TrimRight(resolvedEndpoint, "/"), http: &http.Client{Timeout: 5 * time.Second}, out: out}
 
 	switch remaining[0] {
 	case "health":
@@ -52,12 +76,8 @@ func run(args []string, out io.Writer) error {
 		return runComments(c, remaining[1:])
 	case "navigate":
 		return runNavigate(c, remaining[1:])
-	case "help", "--help", "-h":
-		fmt.Fprintln(out, usage())
-		return nil
-	default:
-		return fmt.Errorf("unknown command %q\n\n%s", remaining[0], usage())
 	}
+	panic("unreachable")
 }
 
 func runComments(c client, args []string) error {
@@ -165,15 +185,115 @@ func (c client) request(method, path string, payload any) error {
 	return err
 }
 
-func envOrDefault(name, fallback string) string {
-	if value := os.Getenv(name); value != "" {
-		return value
+func discoverEndpoint(workspace string) (string, error) {
+	if workspace == "" {
+		var err error
+		workspace, err = os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("get current directory: %w", err)
+		}
 	}
-	return fallback
+	requested, err := canonicalPath(workspace)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace %q: %w", workspace, err)
+	}
+
+	entries, err := os.ReadDir(sessionDirectory())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", errors.New("no Review Relay sessions are registered; open the workspace in VS Code")
+		}
+		return "", fmt.Errorf("read Review Relay sessions: %w", err)
+	}
+
+	type match struct {
+		endpoint string
+		folder   string
+	}
+	var matches []match
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		encoded, readErr := os.ReadFile(filepath.Join(sessionDirectory(), entry.Name()))
+		if readErr != nil {
+			continue
+		}
+		var session sessionDescriptor
+		if json.Unmarshal(encoded, &session) != nil || session.Version != 1 || !isLoopbackEndpoint(session.Endpoint) {
+			continue
+		}
+		for _, folder := range session.WorkspaceFolders {
+			canonicalFolder, canonicalErr := canonicalPath(folder)
+			if canonicalErr == nil && pathContains(canonicalFolder, requested) && healthyEndpoint(session.Endpoint) {
+				matches = append(matches, match{endpoint: session.Endpoint, folder: canonicalFolder})
+				break
+			}
+		}
+	}
+	if len(matches) == 0 {
+		return "", fmt.Errorf("no Review Relay session contains workspace path %q", requested)
+	}
+	bestLength := 0
+	for _, candidate := range matches {
+		if len(candidate.folder) > bestLength {
+			bestLength = len(candidate.folder)
+		}
+	}
+	endpoints := map[string]bool{}
+	for _, candidate := range matches {
+		if len(candidate.folder) == bestLength {
+			endpoints[candidate.endpoint] = true
+		}
+	}
+	if len(endpoints) != 1 {
+		return "", fmt.Errorf("multiple Review Relay sessions match %q; use --endpoint to choose one", requested)
+	}
+	for endpoint := range endpoints {
+		return endpoint, nil
+	}
+	panic("unreachable")
+}
+
+func sessionDirectory() string {
+	return sessionsPath
+}
+
+func isLoopbackEndpoint(endpoint string) bool {
+	parsed, err := url.Parse(endpoint)
+	return err == nil && parsed.Scheme == "http" && parsed.Hostname() == "127.0.0.1" && parsed.Port() != ""
+}
+
+func healthyEndpoint(endpoint string) bool {
+	response, err := (&http.Client{Timeout: 500 * time.Millisecond}).Get(strings.TrimRight(endpoint, "/") + "/health")
+	if err != nil {
+		return false
+	}
+	defer response.Body.Close()
+	return response.StatusCode == http.StatusOK
+}
+
+func canonicalPath(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	if evaluated, evalErr := filepath.EvalSymlinks(absolute); evalErr == nil {
+		absolute = evaluated
+	}
+	return filepath.Clean(absolute), nil
+}
+
+func pathContains(folder, path string) bool {
+	relative, err := filepath.Rel(folder, path)
+	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func usage() string {
-	return `Usage: review-relay [--endpoint URL] COMMAND
+	return `Usage: review-relay [--workspace PATH | --endpoint URL] COMMAND
+
+The CLI discovers the VS Code session containing PATH. PATH defaults to the
+current directory. --endpoint and REVIEW_RELAY_ENDPOINT override discovery.
 
 Commands:
   health

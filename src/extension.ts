@@ -6,6 +6,7 @@ import { createAgentInstructions } from "./agentInstructions";
 import { VsCodeNavigationService } from "./navigation";
 import { renderReviewMarkdown } from "./markdown";
 import { ReviewViewProvider } from "./reviewView";
+import { SessionRegistration } from "./sessionRegistry";
 
 const STORAGE_KEY = "reviewRelay.state.v1";
 
@@ -20,18 +21,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
   const comments = new VsCodeComments(store);
   const server = new CommentServer(store, new VsCodeNavigationService());
-  const configuredPort = vscode.workspace.getConfiguration("reviewRelay").get<number>("server.port", 47658);
 
   let port: number;
   try {
-    port = await server.start(configuredPort);
+    port = await server.start(0);
   } catch (error) {
-    void vscode.window.showErrorMessage(`Review Relay could not start its local API on port ${configuredPort}: ${error instanceof Error ? error.message : error}`);
+    void vscode.window.showErrorMessage(`Review Relay could not start its local API: ${error instanceof Error ? error.message : error}`);
     comments.dispose();
     return;
   }
 
   const endpoint = `http://127.0.0.1:${port}`;
+  const session = new SessionRegistration(endpoint);
+  const workspacePaths = () => (vscode.workspace.workspaceFolders ?? [])
+    .map(folder => folder.uri.fsPath);
+  try {
+    await session.update(workspacePaths());
+  } catch (error) {
+    await server.stop();
+    comments.dispose();
+    void vscode.window.showErrorMessage(`Review Relay could not register its local session: ${error instanceof Error ? error.message : error}`);
+    return;
+  }
   const cliPlatform = process.platform === "win32" ? "windows" : process.platform;
   const cliArch = process.arch === "x64" ? "amd64" : process.arch;
   const cliName = process.platform === "win32" ? "review-relay.exe" : "review-relay";
@@ -41,7 +52,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const instructions = createAgentInstructions({
       endpoint,
       cliPath,
-      workspaceFolders: (vscode.workspace.workspaceFolders ?? []).map(folder => folder.uri.toString())
+      workspaceFolders: (vscode.workspace.workspaceFolders ?? []).map(folder => ({
+        uri: folder.uri.toString(),
+        path: folder.uri.fsPath
+      }))
     });
     await vscode.env.clipboard.writeText(instructions);
     void vscode.window.showInformationMessage("Copied Review Relay agent instructions.");
@@ -56,7 +70,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     comments,
     reviewView,
     status,
-    { dispose: () => void server.stop() },
+    { dispose: () => { void session.dispose(); void server.stop(); } },
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      void session.update(workspacePaths()).catch(error => {
+        void vscode.window.showErrorMessage(`Review Relay could not update its local session: ${error instanceof Error ? error.message : error}`);
+      });
+    }),
     vscode.window.registerWebviewViewProvider(ReviewViewProvider.viewType, reviewView, {
       webviewOptions: { retainContextWhenHidden: true }
     }),

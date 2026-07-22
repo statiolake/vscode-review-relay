@@ -1,13 +1,16 @@
 export interface AgentInstructionsContext {
   endpoint: string;
   cliPath: string;
-  workspaceFolders: readonly string[];
+  workspaceFolders: readonly { uri: string; path: string }[];
 }
 
 export function createAgentInstructions(context: AgentInstructionsContext): string {
   const workspaces = context.workspaceFolders.length > 0
-    ? context.workspaceFolders.map(uri => `- ${uri}`).join("\n")
+    ? context.workspaceFolders.map(folder => `- ${folder.uri}`).join("\n")
     : "- No workspace folder is currently open. Use an absolute file URI from the editor.";
+  const cliTarget = context.workspaceFolders.length > 0
+    ? `--workspace "${context.workspaceFolders[0].path}"`
+    : `--endpoint ${context.endpoint}`;
 
   return `# Review Relay live review comments
 
@@ -29,13 +32,13 @@ ${workspaces}
 
 ## CLI
 
-Prefer the bundled CLI. It has no runtime dependencies. Pass the endpoint explicitly so the command always targets this VS Code session.
+Prefer the bundled CLI. It has no runtime dependencies. It discovers this VS Code session from the workspace path; \`--endpoint\` remains available for environments that cannot access the same filesystem.
 
 \`\`\`sh
-"${context.cliPath}" --endpoint ${context.endpoint} health
-"${context.cliPath}" --endpoint ${context.endpoint} comments list
-"${context.cliPath}" --endpoint ${context.endpoint} navigate --comment COMMENT_ID
-"${context.cliPath}" --endpoint ${context.endpoint} comments add --uri file:///absolute/path/src/app.ts --line 12 --body 'Should this error be propagated?' --author Agent
+"${context.cliPath}" ${cliTarget} health
+"${context.cliPath}" ${cliTarget} comments list
+"${context.cliPath}" ${cliTarget} navigate --comment COMMENT_ID
+"${context.cliPath}" ${cliTarget} comments add --uri file:///absolute/path/src/app.ts --line 12 --body 'Should this error be propagated?' --author Agent
 \`\`\`
 
 Available commands are \`health\`, \`comments list\`, \`comments add\`, \`comments remove\`, \`comments clear\`, and \`navigate\`. Use \`--help\` for the complete syntax. The CLI prints the API JSON response to stdout and errors to stderr.

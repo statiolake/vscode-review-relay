@@ -15,28 +15,26 @@ Open this directory in VS Code and run the `Extension` launch configuration, or 
 
 To connect an AI agent, run **Review Relay: Copy Agent Instructions** from the Command Palette and paste the copied Markdown into the agent chat. It contains the live endpoint, open workspace URIs, interface contract, safety rules, and ready-to-run CLI examples.
 
-The extension bundles a dependency-free Go CLI for the current OS and architecture. Agent instructions include its absolute path and endpoint-specific commands, so agents do not need Node.js, curl, or jq. Run `npm run build:cli:all` before packaging a cross-platform VSIX.
+The extension bundles a dependency-free Go CLI for the current OS and architecture. Agent instructions include its absolute path and workspace-specific commands, so agents do not need Node.js, curl, or jq. Run `npm run build:cli:all` before packaging a cross-platform VSIX.
 
-The default endpoint is `http://127.0.0.1:47658` and can be changed with `reviewRelay.server.port`. Setting the port to `0` chooses a free port.
+Each VS Code window binds an available random loopback port and registers its endpoint against its workspace folders. The CLI discovers the right window from `--workspace PATH`, or from its current directory when that option is omitted. This allows multiple projects to use Review Relay concurrently without coordinating port numbers. `--endpoint URL` remains available as an explicit override.
 
 ```bash
 # Read all comments
-curl -s http://127.0.0.1:47658/v1/comments
+review-relay --workspace /absolute/path/to/project comments list
 
 # Add an AI comment (line numbers are zero-based; uri is a VS Code URI)
-curl -s -X POST http://127.0.0.1:47658/v1/comments \
-  -H 'content-type: application/json' \
-  -d '{"uri":"file:///absolute/path/src/app.ts","line":12,"body":"Should this error be propagated?","author":"Codex"}'
+review-relay --workspace /absolute/path/to/project comments add \
+  --uri file:///absolute/path/src/app.ts --line 12 \
+  --body 'Should this error be propagated?' --author Codex
 
 # Open a comment in VS Code
-curl -s -X POST http://127.0.0.1:47658/v1/navigate \
-  -H 'content-type: application/json' \
-  -d '{"commentId":"COMMENT_ID"}'
+review-relay --workspace /absolute/path/to/project navigate --comment COMMENT_ID
 
 # Filter, remove one, or clear all
-curl -s 'http://127.0.0.1:47658/v1/comments?uri=file%3A%2F%2F%2Fabsolute%2Fpath%2Fsrc%2Fapp.ts'
-curl -s -X DELETE http://127.0.0.1:47658/v1/comments/COMMENT_ID
-curl -s -X DELETE http://127.0.0.1:47658/v1/comments
+review-relay comments list --uri file:///absolute/path/src/app.ts
+review-relay comments remove COMMENT_ID
+review-relay comments clear
 ```
 
 Comments persist in VS Code workspace storage and updates from either side immediately redraw native comment threads. The server binds only to `127.0.0.1`, rejects browser-origin requests, requires JSON for writes, and caps request bodies at 64 KiB.

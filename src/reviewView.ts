@@ -59,7 +59,7 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
   .heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .heading-text { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
   h2 { margin: 0; font-size: 13px; font-weight: 600; }
-  .count, .feedback { color: var(--vscode-descriptionForeground); font-size: 11px; }
+  .count { color: var(--vscode-descriptionForeground); font-size: 11px; }
   textarea { width: 100%; min-height: 160px; flex: 1; resize: vertical; padding: 8px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); font: var(--vscode-editor-font-size) var(--vscode-editor-font-family); }
   textarea:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
   .option { display: flex; align-items: center; gap: 7px; cursor: pointer; }
@@ -87,24 +87,21 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
   <textarea id="overall" placeholder="Summary, overall guidance, or context for the coding agent…"></textarea>
   <label class="option"><input id="includeAi" type="checkbox"> Include AI-generated comments</label>
   <div class="actions"><button id="copyMarkdown">Copy as Markdown</button></div>
-  <span id="feedback" class="feedback" aria-live="polite"></span>
   <section class="agent"><h2>Live agent connection</h2><span class="count">Copy the endpoint, CLI path, and interface contract.</span><button id="copyAgent" class="secondary">Copy Agent Instructions</button></section>
 </main><script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   const overall = document.getElementById('overall');
   const includeAi = document.getElementById('includeAi');
   const count = document.getElementById('count');
-  const feedback = document.getElementById('feedback');
   const overflow = document.getElementById('overflow');
   let timer; let lastSent = '';
-  function flash(text) { feedback.textContent = text; setTimeout(() => { if (feedback.textContent === text) feedback.textContent = ''; }, 1600); }
   overall.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { if (overall.value !== lastSent) { lastSent = overall.value; vscode.postMessage({ type: 'overallChanged', value: overall.value }); } }, 250); });
   includeAi.addEventListener('change', () => vscode.postMessage({ type: 'includeAiChanged', value: includeAi.checked }));
   document.getElementById('clear').addEventListener('click', () => { overflow.removeAttribute('open'); vscode.postMessage({ type: 'clear' }); });
   document.addEventListener('click', event => { if (!overflow.contains(event.target)) overflow.removeAttribute('open'); });
   document.addEventListener('keydown', event => { if (event.key === 'Escape') { overflow.removeAttribute('open'); overflow.querySelector('summary').focus(); } });
-  document.getElementById('copyMarkdown').addEventListener('click', () => { vscode.postMessage({ type: 'copyMarkdown' }); flash('Markdown copied'); });
-  document.getElementById('copyAgent').addEventListener('click', () => { vscode.postMessage({ type: 'copyAgentInstructions' }); flash('Agent instructions copied'); });
+  document.getElementById('copyMarkdown').addEventListener('click', () => vscode.postMessage({ type: 'copyMarkdown' }));
+  document.getElementById('copyAgent').addEventListener('click', () => vscode.postMessage({ type: 'copyAgentInstructions' }));
   window.addEventListener('message', event => { const state = event.data; if (state.type !== 'state') return; if (document.activeElement !== overall) { overall.value = state.overall; lastSent = state.overall; } includeAi.checked = state.includeAiGenerated; count.textContent = state.humanCount + ' human · ' + state.aiCount + ' AI'; });
   vscode.postMessage({ type: 'ready' });
 </script></body></html>`;

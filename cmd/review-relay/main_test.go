@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -59,5 +61,57 @@ func TestHelpExitsSuccessfully(t *testing.T) {
 	}
 	if !bytes.Contains(out.Bytes(), []byte("comments add")) {
 		t.Fatalf("unexpected help: %s", out.String())
+	}
+}
+
+func TestDiscoversSessionFromWorkspace(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			_, _ = w.Write([]byte(`{"ok":true}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"comments":[]}`))
+	}))
+	defer server.Close()
+
+	workspace := t.TempDir()
+	nested := filepath.Join(workspace, "src")
+	if err := os.Mkdir(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	directory := t.TempDir()
+	previousSessionsPath := sessionsPath
+	sessionsPath = directory
+	t.Cleanup(func() { sessionsPath = previousSessionsPath })
+	descriptor, _ := json.Marshal(sessionDescriptor{Version: 1, ID: "one", Endpoint: server.URL, WorkspaceFolders: []string{workspace}})
+	if err := os.WriteFile(filepath.Join(directory, "one.json"), descriptor, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := run([]string{"--workspace", nested, "comments", "list"}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != `{"comments":[]}` {
+		t.Fatalf("unexpected output: %s", out.String())
+	}
+}
+
+func TestDiscoveryRejectsAmbiguousSessions(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"ok":true}`)) }))
+	defer server.Close()
+	directory := t.TempDir()
+	previousSessionsPath := sessionsPath
+	sessionsPath = directory
+	t.Cleanup(func() { sessionsPath = previousSessionsPath })
+	workspace := t.TempDir()
+	for _, id := range []string{"one", "two"} {
+		descriptor, _ := json.Marshal(sessionDescriptor{Version: 1, ID: id, Endpoint: server.URL + "/" + id, WorkspaceFolders: []string{workspace}})
+		if err := os.WriteFile(filepath.Join(directory, id+".json"), descriptor, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := discoverEndpoint(workspace); err == nil {
+		t.Fatal("expected ambiguous discovery to fail")
 	}
 }
