@@ -29,6 +29,7 @@ ${workspaces}
 3. Use the API to add a comment when a concise, location-specific message is more useful than chat.
 4. Re-read the comments after writing so you can verify the live state.
 5. Do not delete comments unless the user explicitly asks you to. Never clear all comments without explicit confirmation.
+6. If the CLI or endpoint cannot connect, ask the user to run **Review Relay: Copy Agent Instructions** again and paste the fresh instructions. The endpoint can change when VS Code restarts.
 
 ## CLI
 

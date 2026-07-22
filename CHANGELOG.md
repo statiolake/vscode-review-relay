@@ -4,6 +4,7 @@
 
 - Run each VS Code window on an available random port and let the CLI discover it from the workspace path.
 - Keep copy confirmations in VS Code notifications so the Review view does not shift.
+- Tell agents to request fresh connection instructions after a VS Code restart.
 
 ## 0.1.0
 

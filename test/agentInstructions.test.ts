@@ -19,4 +19,5 @@ test("agent instructions contain the live endpoint, workspace and complete inter
   assert.match(instructions, /DELETE \/v1\/comments\/<id>/);
   assert.match(instructions, /zero-based and inclusive/);
   assert.match(instructions, /Do not delete comments unless the user explicitly asks/);
+  assert.match(instructions, /Copy Agent Instructions.*again/);
 });
