@@ -10,7 +10,7 @@ type IncomingMessage =
   | { type: "copyAgentInstructions" };
 
 export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
-  static readonly viewType = "commentator.review";
+  static readonly viewType = "reviewRelay.review";
   private view?: vscode.WebviewView;
   private readonly subscription: vscode.Disposable;
 
@@ -30,9 +30,9 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
       case "ready": this.postState(); break;
       case "overallChanged": await this.store.setOverall(message.value); break;
       case "includeAiChanged": await this.store.setIncludeAiGenerated(message.value); break;
-      case "clear": await vscode.commands.executeCommand("commentator.clearReview"); break;
-      case "copyMarkdown": await vscode.commands.executeCommand("commentator.copyMarkdown"); break;
-      case "copyAgentInstructions": await vscode.commands.executeCommand("commentator.copyAgentInstructions"); break;
+      case "clear": await vscode.commands.executeCommand("reviewRelay.clearReview"); break;
+      case "copyMarkdown": await vscode.commands.executeCommand("reviewRelay.copyMarkdown"); break;
+      case "copyAgentInstructions": await vscode.commands.executeCommand("reviewRelay.copyAgentInstructions"); break;
     }
   }
 

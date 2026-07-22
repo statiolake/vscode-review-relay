@@ -17,6 +17,6 @@ export class VsCodeNavigationService implements NavigationService {
     editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
     const location = `${vscode.workspace.asRelativePath(document.uri, false)}:${target.line + 1}`;
     const subject = target.commentId ? `comment ${target.commentId}` : location;
-    void vscode.window.showInformationMessage(`Commentator opened ${subject}.`);
+    void vscode.window.showInformationMessage(`Review Relay opened ${subject}.`);
   }
 }

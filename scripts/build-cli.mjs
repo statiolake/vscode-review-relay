@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
@@ -14,9 +14,10 @@ const targets = process.argv.includes("--all") ? allTargets : [[nodePlatform, no
 for (const [goos, goarch] of targets) {
   if (!goos || !goarch) throw new Error(`Unsupported build host: ${process.platform}-${process.arch}`);
   const directory = join("bin", `${goos}-${goarch}`);
+  rmSync(directory, { recursive: true, force: true });
   mkdirSync(directory, { recursive: true });
-  const output = join(directory, goos === "windows" ? "commentator.exe" : "commentator");
-  const result = spawnSync("go", ["build", "-trimpath", "-ldflags=-s -w", "-o", output, "./cmd/commentator"], {
+  const output = join(directory, goos === "windows" ? "review-relay.exe" : "review-relay");
+  const result = spawnSync("go", ["build", "-trimpath", "-ldflags=-s -w", "-o", output, "./cmd/review-relay"], {
     stdio: "inherit", env: { ...process.env, GOOS: goos, GOARCH: goarch, CGO_ENABLED: "0" }
   });
   if (result.status !== 0) process.exit(result.status ?? 1);

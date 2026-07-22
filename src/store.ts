@@ -2,18 +2,18 @@ import { randomUUID } from "node:crypto";
 import { CreateCommentInput, ReviewComment } from "./model";
 
 export interface CommentPersistence {
-  load(): CommentatorState;
-  save(state: CommentatorState): PromiseLike<void>;
+  load(): ReviewRelayState;
+  save(state: ReviewRelayState): PromiseLike<void>;
 }
 
-export interface CommentatorState {
+export interface ReviewRelayState {
   comments: ReviewComment[];
   overall: string;
   includeAiGenerated: boolean;
 }
 
 export class CommentStore {
-  private state: CommentatorState;
+  private state: ReviewRelayState;
   private readonly listeners = new Set<() => void>();
 
   constructor(private readonly persistence: CommentPersistence) {

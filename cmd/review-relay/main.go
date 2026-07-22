@@ -24,15 +24,15 @@ type client struct {
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
-		fmt.Fprintln(os.Stderr, "commentator:", err)
+		fmt.Fprintln(os.Stderr, "review-relay:", err)
 		os.Exit(1)
 	}
 }
 
 func run(args []string, out io.Writer) error {
-	root := flag.NewFlagSet("commentator", flag.ContinueOnError)
+	root := flag.NewFlagSet("review-relay", flag.ContinueOnError)
 	root.SetOutput(io.Discard)
-	endpoint := root.String("endpoint", envOrDefault("COMMENTATOR_ENDPOINT", defaultEndpoint), "Commentator API endpoint")
+	endpoint := root.String("endpoint", envOrDefault("REVIEW_RELAY_ENDPOINT", defaultEndpoint), "Review Relay API endpoint")
 	if err := root.Parse(args); errors.Is(err, flag.ErrHelp) {
 		fmt.Fprintln(out, usage())
 		return nil
@@ -173,7 +173,7 @@ func envOrDefault(name, fallback string) string {
 }
 
 func usage() string {
-	return `Usage: commentator [--endpoint URL] COMMAND
+	return `Usage: review-relay [--endpoint URL] COMMAND
 
 Commands:
   health

@@ -1,6 +1,6 @@
 {
-  "name": "vscode-commentator",
-  "displayName": "VSCode Commentator",
+  "name": "vscode-review-relay",
+  "displayName": "Review Relay",
   "description": "Live review comments shared between VS Code and local AI tools.",
   "version": "0.1.0",
   "publisher": "statiolake",
@@ -8,11 +8,11 @@
   "author": "statiolake",
   "repository": {
     "type": "git",
-    "url": "https://github.com/statiolake/vscode-commentator.git"
+    "url": "https://github.com/statiolake/vscode-review-relay.git"
   },
-  "homepage": "https://github.com/statiolake/vscode-commentator#readme",
+  "homepage": "https://github.com/statiolake/vscode-review-relay#readme",
   "bugs": {
-    "url": "https://github.com/statiolake/vscode-commentator/issues"
+    "url": "https://github.com/statiolake/vscode-review-relay/issues"
   },
   "keywords": ["review", "comments", "coding agent", "AI", "diff"],
   "engines": { "vscode": "^1.96.0" },
@@ -22,54 +22,54 @@
   "contributes": {
     "viewsContainers": {
       "activitybar": [
-        { "id": "commentator", "title": "Commentator", "icon": "media/icon.svg" }
+        { "id": "reviewRelay", "title": "Review Relay", "icon": "media/icon.svg" }
       ]
     },
     "views": {
-      "commentator": [
-        { "id": "commentator.review", "name": "Review", "type": "webview" }
+      "reviewRelay": [
+        { "id": "reviewRelay.review", "name": "Review", "type": "webview" }
       ]
     },
     "commands": [
-      { "command": "commentator.addComment", "title": "Commentator: Add Comment" },
-      { "command": "commentator.editComment", "title": "Edit", "icon": "$(edit)" },
-      { "command": "commentator.saveComment", "title": "Save", "icon": "$(check)" },
-      { "command": "commentator.cancelEditComment", "title": "Cancel", "icon": "$(close)" },
-      { "command": "commentator.deleteComment", "title": "Delete", "icon": "$(trash)" },
-      { "command": "commentator.submitComment", "title": "Add Comment" },
-      { "command": "commentator.copyEndpoint", "title": "Commentator: Copy API Endpoint" },
-      { "command": "commentator.copyAgentInstructions", "title": "Commentator: Copy Agent Instructions" },
-      { "command": "commentator.copyMarkdown", "title": "Commentator: Copy as Markdown", "icon": "$(clippy)" },
-      { "command": "commentator.clearReview", "title": "Commentator: Clear Review", "icon": "$(clear-all)" },
-      { "command": "commentator.clearComments", "title": "Commentator: Clear All Comments" }
+      { "command": "reviewRelay.addComment", "title": "Review Relay: Add Comment" },
+      { "command": "reviewRelay.editComment", "title": "Edit", "icon": "$(edit)" },
+      { "command": "reviewRelay.saveComment", "title": "Save", "icon": "$(check)" },
+      { "command": "reviewRelay.cancelEditComment", "title": "Cancel", "icon": "$(close)" },
+      { "command": "reviewRelay.deleteComment", "title": "Delete", "icon": "$(trash)" },
+      { "command": "reviewRelay.submitComment", "title": "Add Comment" },
+      { "command": "reviewRelay.copyEndpoint", "title": "Review Relay: Copy API Endpoint" },
+      { "command": "reviewRelay.copyAgentInstructions", "title": "Review Relay: Copy Agent Instructions" },
+      { "command": "reviewRelay.copyMarkdown", "title": "Review Relay: Copy as Markdown", "icon": "$(clippy)" },
+      { "command": "reviewRelay.clearReview", "title": "Review Relay: Clear Review", "icon": "$(clear-all)" },
+      { "command": "reviewRelay.clearComments", "title": "Review Relay: Clear All Comments" }
     ],
     "menus": {
       "commandPalette": [
-        { "command": "commentator.submitComment", "when": "false" },
-        { "command": "commentator.editComment", "when": "false" },
-        { "command": "commentator.saveComment", "when": "false" },
-        { "command": "commentator.cancelEditComment", "when": "false" },
-        { "command": "commentator.deleteComment", "when": "false" }
+        { "command": "reviewRelay.submitComment", "when": "false" },
+        { "command": "reviewRelay.editComment", "when": "false" },
+        { "command": "reviewRelay.saveComment", "when": "false" },
+        { "command": "reviewRelay.cancelEditComment", "when": "false" },
+        { "command": "reviewRelay.deleteComment", "when": "false" }
       ],
       "editor/context": [
-        { "command": "commentator.addComment", "group": "navigation@50", "when": "editorTextFocus" }
+        { "command": "reviewRelay.addComment", "group": "navigation@50", "when": "editorTextFocus" }
       ],
       "comments/commentEditor/submit": [
-        { "command": "commentator.submitComment", "when": "commentController == commentator" }
+        { "command": "reviewRelay.submitComment", "when": "commentController == review-relay" }
       ],
       "comments/comment/title": [
-        { "command": "commentator.editComment", "group": "inline@1", "when": "commentController == commentator && comment == preview" },
-        { "command": "commentator.deleteComment", "group": "inline@2", "when": "commentController == commentator && comment == preview" }
+        { "command": "reviewRelay.editComment", "group": "inline@1", "when": "commentController == review-relay && comment == preview" },
+        { "command": "reviewRelay.deleteComment", "group": "inline@2", "when": "commentController == review-relay && comment == preview" }
       ],
       "comments/comment/context": [
-        { "command": "commentator.saveComment", "group": "inline@1", "when": "commentController == commentator && comment == editing" },
-        { "command": "commentator.cancelEditComment", "group": "inline@2", "when": "commentController == commentator && comment == editing" }
+        { "command": "reviewRelay.saveComment", "group": "inline@1", "when": "commentController == review-relay && comment == editing" },
+        { "command": "reviewRelay.cancelEditComment", "group": "inline@2", "when": "commentController == review-relay && comment == editing" }
       ]
     },
     "configuration": {
-      "title": "Commentator",
+      "title": "Review Relay",
       "properties": {
-        "commentator.server.port": {
+        "reviewRelay.server.port": {
           "type": "number",
           "default": 47658,
           "minimum": 0,

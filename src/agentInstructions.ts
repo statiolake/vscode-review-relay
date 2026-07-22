@@ -9,7 +9,7 @@ export function createAgentInstructions(context: AgentInstructionsContext): stri
     ? context.workspaceFolders.map(uri => `- ${uri}`).join("\n")
     : "- No workspace folder is currently open. Use an absolute file URI from the editor.";
 
-  return `# Commentator live review comments
+  return `# Review Relay live review comments
 
 This VS Code session exposes live review comments to local tools. Use this interface while working on the user's code. Comments written by the user in VS Code and comments written through this API share one live store.
 

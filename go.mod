@@ -1,3 +1,3 @@
-module github.com/statiolake/vscode-commentator
+module github.com/statiolake/vscode-review-relay
 
 go 1.22

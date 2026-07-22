@@ -1,8 +1,8 @@
-# Commentator
+# Review Relay
 
-Commentator is an MVP VS Code extension for a shared, live review-comment channel between a human in VS Code and local AI tooling. VS Code remains the diff/editor UI and language-aware navigation surface; the extension owns one comment store and exposes it both through VS Code's native Comments UI and a loopback-only HTTP API.
+Review Relay is a shared, live review-comment channel between a human in VS Code and local AI tooling. VS Code remains the diff/editor UI and language-aware navigation surface; the extension owns one comment store and exposes it both through VS Code's native Comments UI and a loopback-only HTTP API.
 
-The Commentator Activity Bar view also provides an overall review comment and export controls. **Copy as Markdown** combines the overall text, inline source snippets, and review comments for agents that cannot reach the local API. **Include AI-generated comments** controls whether agent-authored comments are included in that export. The same view can copy the live Agent Instructions for agents that can use the bundled CLI.
+The Review Relay Activity Bar view also provides an overall review comment and export controls. **Copy as Markdown** combines the overall text, inline source snippets, and review comments for agents that cannot reach the local API. **Include AI-generated comments** controls whether agent-authored comments are included in that export. The same view can copy the live Agent Instructions for agents that can use the bundled CLI.
 
 ## Try it
 
@@ -11,13 +11,13 @@ npm install
 npm run build
 ```
 
-Open this directory in VS Code and run the `Extension` launch configuration, or press F5. Select code and run **Commentator: Add Comment**. The status bar shows that the API is running; click it to copy the endpoint.
+Open this directory in VS Code and run the `Extension` launch configuration, or press F5. Select code and run **Review Relay: Add Comment**. The status bar shows that the API is running; click it to copy the endpoint.
 
-To connect an AI agent, run **Commentator: Copy Agent Instructions** from the Command Palette and paste the copied Markdown into the agent chat. It contains the live endpoint, open workspace URIs, interface contract, safety rules, and ready-to-run curl examples.
+To connect an AI agent, run **Review Relay: Copy Agent Instructions** from the Command Palette and paste the copied Markdown into the agent chat. It contains the live endpoint, open workspace URIs, interface contract, safety rules, and ready-to-run CLI examples.
 
 The extension bundles a dependency-free Go CLI for the current OS and architecture. Agent instructions include its absolute path and endpoint-specific commands, so agents do not need Node.js, curl, or jq. Run `npm run build:cli:all` before packaging a cross-platform VSIX.
 
-The default endpoint is `http://127.0.0.1:47658` and can be changed with `commentator.server.port`. Setting the port to `0` chooses a free port.
+The default endpoint is `http://127.0.0.1:47658` and can be changed with `reviewRelay.server.port`. Setting the port to `0` chooses a free port.
 
 ```bash
 # Read all comments
