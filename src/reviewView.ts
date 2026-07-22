@@ -56,25 +56,37 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
   * { box-sizing: border-box; }
   body { margin: 0; padding: 12px; color: var(--vscode-foreground); font: var(--vscode-font-size)/1.4 var(--vscode-font-family); }
   main { min-height: calc(100vh - 24px); display: flex; flex-direction: column; gap: 12px; }
-  .heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .heading-text { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
   h2 { margin: 0; font-size: 13px; font-weight: 600; }
   .count, .feedback { color: var(--vscode-descriptionForeground); font-size: 11px; }
   textarea { width: 100%; min-height: 160px; flex: 1; resize: vertical; padding: 8px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); font: var(--vscode-editor-font-size) var(--vscode-editor-font-family); }
   textarea:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
   .option { display: flex; align-items: center; gap: 7px; cursor: pointer; }
   .option input { margin: 0; }
-  .actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
+  .actions button { width: 100%; }
   button { border: 0; border-radius: 2px; padding: 7px 10px; cursor: pointer; color: var(--vscode-button-foreground); background: var(--vscode-button-background); font: inherit; }
   button:hover { background: var(--vscode-button-hoverBackground); }
   button.secondary { color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); }
   button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
+  .overflow { position: relative; flex: none; }
+  .overflow summary { list-style: none; width: 26px; height: 24px; display: grid; place-items: center; border-radius: 3px; cursor: pointer; color: var(--vscode-icon-foreground); font-size: 18px; line-height: 1; user-select: none; }
+  .overflow summary::-webkit-details-marker { display: none; }
+  .overflow summary:hover, .overflow[open] summary { background: var(--vscode-toolbar-hoverBackground); }
+  .overflow summary:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+  .menu { position: absolute; z-index: 10; top: 27px; right: 0; min-width: 150px; padding: 4px; background: var(--vscode-menu-background); color: var(--vscode-menu-foreground); border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border)); box-shadow: 0 2px 8px var(--vscode-widget-shadow); }
+  .menu button { width: 100%; padding: 5px 8px; text-align: left; color: inherit; background: transparent; }
+  .menu button:hover, .menu button:focus { color: var(--vscode-menu-selectionForeground); background: var(--vscode-menu-selectionBackground); outline: none; }
   .agent { margin-top: 2px; padding-top: 12px; border-top: 1px solid var(--vscode-widget-border); display: grid; gap: 7px; }
   .agent button { width: 100%; }
 </style></head><body><main>
-  <div class="heading"><h2>Overall comment</h2><span id="count" class="count"></span></div>
+  <div class="heading">
+    <div class="heading-text"><h2>Overall comment</h2><span id="count" class="count"></span></div>
+    <details id="overflow" class="overflow"><summary aria-label="More actions" title="More actions">⋯</summary><div class="menu" role="menu"><button id="clear" role="menuitem">Clear review…</button></div></details>
+  </div>
   <textarea id="overall" placeholder="Summary, overall guidance, or context for the coding agent…"></textarea>
   <label class="option"><input id="includeAi" type="checkbox"> Include AI-generated comments</label>
-  <div class="actions"><button id="clear" class="secondary">Clear</button><button id="copyMarkdown">Copy as Markdown</button></div>
+  <div class="actions"><button id="copyMarkdown">Copy as Markdown</button></div>
   <span id="feedback" class="feedback" aria-live="polite"></span>
   <section class="agent"><h2>Live agent connection</h2><span class="count">Copy the endpoint, CLI path, and interface contract.</span><button id="copyAgent" class="secondary">Copy Agent Instructions</button></section>
 </main><script nonce="${nonce}">
@@ -83,11 +95,14 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
   const includeAi = document.getElementById('includeAi');
   const count = document.getElementById('count');
   const feedback = document.getElementById('feedback');
+  const overflow = document.getElementById('overflow');
   let timer; let lastSent = '';
   function flash(text) { feedback.textContent = text; setTimeout(() => { if (feedback.textContent === text) feedback.textContent = ''; }, 1600); }
   overall.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { if (overall.value !== lastSent) { lastSent = overall.value; vscode.postMessage({ type: 'overallChanged', value: overall.value }); } }, 250); });
   includeAi.addEventListener('change', () => vscode.postMessage({ type: 'includeAiChanged', value: includeAi.checked }));
-  document.getElementById('clear').addEventListener('click', () => vscode.postMessage({ type: 'clear' }));
+  document.getElementById('clear').addEventListener('click', () => { overflow.removeAttribute('open'); vscode.postMessage({ type: 'clear' }); });
+  document.addEventListener('click', event => { if (!overflow.contains(event.target)) overflow.removeAttribute('open'); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') { overflow.removeAttribute('open'); overflow.querySelector('summary').focus(); } });
   document.getElementById('copyMarkdown').addEventListener('click', () => { vscode.postMessage({ type: 'copyMarkdown' }); flash('Markdown copied'); });
   document.getElementById('copyAgent').addEventListener('click', () => { vscode.postMessage({ type: 'copyAgentInstructions' }); flash('Agent instructions copied'); });
   window.addEventListener('message', event => { const state = event.data; if (state.type !== 'state') return; if (document.activeElement !== overall) { overall.value = state.overall; lastSent = state.overall; } includeAi.checked = state.includeAiGenerated; count.textContent = state.humanCount + ' human · ' + state.aiCount + ' AI'; });
