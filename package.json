@@ -1,6 +1,6 @@
 {
   "name": "vscode-commentator",
-  "displayName": "Commentator",
+  "displayName": "VSCode Commentator",
   "description": "Live review comments shared between VS Code and local AI tools.",
   "version": "0.1.0",
   "publisher": "statiolake",
