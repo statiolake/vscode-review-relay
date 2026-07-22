@@ -1,5 +1,6 @@
 export interface AgentInstructionsContext {
   endpoint: string;
+  cliPath: string;
   workspaceFolders: readonly string[];
 }
 
@@ -13,6 +14,7 @@ export function createAgentInstructions(context: AgentInstructionsContext): stri
 This VS Code session exposes live review comments to local tools. Use this interface while working on the user's code. Comments written by the user in VS Code and comments written through this API share one live store.
 
 Endpoint: ${context.endpoint}
+CLI executable: ${context.cliPath}
 
 Open workspace folders:
 ${workspaces}
@@ -24,6 +26,19 @@ ${workspaces}
 3. Use the API to add a comment when a concise, location-specific message is more useful than chat.
 4. Re-read the comments after writing so you can verify the live state.
 5. Do not delete comments unless the user explicitly asks you to. Never clear all comments without explicit confirmation.
+
+## CLI
+
+Prefer the bundled CLI. It has no runtime dependencies. Pass the endpoint explicitly so the command always targets this VS Code session.
+
+\`\`\`sh
+"${context.cliPath}" --endpoint ${context.endpoint} health
+"${context.cliPath}" --endpoint ${context.endpoint} comments list
+"${context.cliPath}" --endpoint ${context.endpoint} navigate --comment COMMENT_ID
+"${context.cliPath}" --endpoint ${context.endpoint} comments add --uri file:///absolute/path/src/app.ts --line 12 --body 'Should this error be propagated?' --author Agent
+\`\`\`
+
+Available commands are \`health\`, \`comments list\`, \`comments add\`, \`comments remove\`, \`comments clear\`, and \`navigate\`. Use \`--help\` for the complete syntax. The CLI prints the API JSON response to stdout and errors to stderr.
 
 ## HTTP interface
 
@@ -37,6 +52,8 @@ All responses are JSON. The server only listens on 127.0.0.1.
   Filters comments by exact VS Code document URI.
 - POST /v1/comments
   Creates a comment. Send Content-Type: application/json.
+- POST /v1/navigate
+  Opens and reveals a location in VS Code. Send either { "commentId": "..." } or { "uri": "...", "line": 12, "endLine": 14 }. Do not combine target forms.
 - DELETE /v1/comments/<id>
   Deletes one comment. Only use when explicitly requested.
 - DELETE /v1/comments
@@ -64,6 +81,9 @@ Comment response fields include \`id\`, \`uri\`, \`range.start\`, \`range.end\`,
 \`\`\`sh
 curl -fsS ${context.endpoint}/health
 curl -fsS ${context.endpoint}/v1/comments
+curl -fsS -X POST ${context.endpoint}/v1/navigate \\
+  -H 'content-type: application/json' \\
+  -d '{"commentId":"COMMENT_ID"}'
 curl -fsS -X POST ${context.endpoint}/v1/comments \\
   -H 'content-type: application/json' \\
   -d '{"uri":"file:///absolute/path/src/app.ts","line":12,"body":"Should this error be propagated?","author":"Agent","source":"agent"}'

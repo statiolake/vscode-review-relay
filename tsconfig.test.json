@@ -4,5 +4,5 @@
     "outDir": "dist-test",
     "rootDir": "."
   },
-  "include": ["src/model.ts", "src/store.ts", "src/server.ts", "src/agentInstructions.ts", "test/**/*.ts"]
+  "include": ["src/model.ts", "src/store.ts", "src/server.ts", "src/navigation.ts", "src/agentInstructions.ts", "test/**/*.ts"]
 }

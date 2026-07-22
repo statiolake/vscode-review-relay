@@ -4,6 +4,7 @@ import { CommentStore } from "./store";
 import { ReviewComment } from "./model";
 import { VsCodeComments } from "./vscodeComments";
 import { createAgentInstructions } from "./agentInstructions";
+import { VsCodeNavigationService } from "./navigation";
 
 const STORAGE_KEY = "commentator.comments.v1";
 
@@ -13,7 +14,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     save: comments => context.workspaceState.update(STORAGE_KEY, comments)
   });
   const comments = new VsCodeComments(store);
-  const server = new CommentServer(store);
+  const server = new CommentServer(store, new VsCodeNavigationService());
   const configuredPort = vscode.workspace.getConfiguration("commentator").get<number>("server.port", 47658);
 
   let port: number;
@@ -26,6 +27,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
 
   const endpoint = `http://127.0.0.1:${port}`;
+  const cliPlatform = process.platform === "win32" ? "windows" : process.platform;
+  const cliArch = process.arch === "x64" ? "amd64" : process.arch;
+  const cliName = process.platform === "win32" ? "commentator.exe" : "commentator";
+  const cliPath = context.asAbsolutePath(`bin/${cliPlatform}-${cliArch}/${cliName}`);
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 20);
   status.text = "$(comment-discussion) Commentator";
   status.tooltip = `Live comment API: ${endpoint}`;
@@ -46,6 +51,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand("commentator.copyAgentInstructions", async () => {
       const instructions = createAgentInstructions({
         endpoint,
+        cliPath,
         workspaceFolders: (vscode.workspace.workspaceFolders ?? []).map(folder => folder.uri.toString())
       });
       await vscode.env.clipboard.writeText(instructions);

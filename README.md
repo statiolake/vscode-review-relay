@@ -13,6 +13,8 @@ Open this directory in VS Code and run the `Extension` launch configuration, or 
 
 To connect an AI agent, run **Commentator: Copy Agent Instructions** from the Command Palette and paste the copied Markdown into the agent chat. It contains the live endpoint, open workspace URIs, interface contract, safety rules, and ready-to-run curl examples.
 
+The extension bundles a dependency-free Go CLI for the current OS and architecture. Agent instructions include its absolute path and endpoint-specific commands, so agents do not need Node.js, curl, or jq. Run `npm run build:cli:all` before packaging a cross-platform VSIX.
+
 The default endpoint is `http://127.0.0.1:47658` and can be changed with `commentator.server.port`. Setting the port to `0` chooses a free port.
 
 ```bash
@@ -23,6 +25,11 @@ curl -s http://127.0.0.1:47658/v1/comments
 curl -s -X POST http://127.0.0.1:47658/v1/comments \
   -H 'content-type: application/json' \
   -d '{"uri":"file:///absolute/path/src/app.ts","line":12,"body":"Should this error be propagated?","author":"Codex"}'
+
+# Open a comment in VS Code
+curl -s -X POST http://127.0.0.1:47658/v1/navigate \
+  -H 'content-type: application/json' \
+  -d '{"commentId":"COMMENT_ID"}'
 
 # Filter, remove one, or clear all
 curl -s 'http://127.0.0.1:47658/v1/comments?uri=file%3A%2F%2F%2Fabsolute%2Fpath%2Fsrc%2Fapp.ts'
@@ -37,6 +44,7 @@ Comments persist in VS Code workspace storage and updates from either side immed
 - `GET /health`
 - `GET /v1/comments[?uri=...]`
 - `POST /v1/comments` with `{ uri, line, endLine?, body, author?, source? }`
+- `POST /v1/navigate` with `{ commentId }` or `{ uri, line, endLine? }`
 - `DELETE /v1/comments/:id`
 - `DELETE /v1/comments`
 

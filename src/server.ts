@@ -1,13 +1,17 @@
 import { createServer, IncomingMessage, Server, ServerResponse } from "node:http";
 import { AddressInfo } from "node:net";
 import { CommentStore } from "./store";
-import { validateCreateComment } from "./model";
+import { validateCreateComment, validateNavigate } from "./model";
+import { NavigationService } from "./navigation";
 
 const MAX_BODY_BYTES = 64 * 1024;
 
 export class CommentServer {
   private server?: Server;
-  constructor(private readonly store: CommentStore) {}
+  constructor(
+    private readonly store: CommentStore,
+    private readonly navigation: NavigationService
+  ) {}
 
   async start(port: number): Promise<number> {
     this.server = createServer((request, response) => void this.handle(request, response));
@@ -37,6 +41,22 @@ export class CommentServer {
         if (!request.headers["content-type"]?.startsWith("application/json")) return this.json(response, 415, { error: "Content-Type must be application/json." });
         const comment = await this.store.add(validateCreateComment(await this.readJson(request)));
         return this.json(response, 201, { comment });
+      }
+      if (request.method === "POST" && url.pathname === "/v1/navigate") {
+        if (!request.headers["content-type"]?.startsWith("application/json")) return this.json(response, 415, { error: "Content-Type must be application/json." });
+        const input = validateNavigate(await this.readJson(request));
+        let target;
+        let commentId: string | undefined;
+        if ("commentId" in input) {
+          const comment = this.store.list().find(candidate => candidate.id === input.commentId);
+          if (!comment) return this.json(response, 404, { error: "Comment not found." });
+          commentId = comment.id;
+          target = { uri: comment.uri, line: comment.range.start.line, endLine: comment.range.end.line, commentId };
+        } else {
+          target = { uri: input.uri, line: input.line, endLine: input.endLine ?? input.line };
+        }
+        await this.navigation.navigate(target);
+        return this.json(response, 200, { navigated: target });
       }
       const match = /^\/v1\/comments\/([^/]+)$/.exec(url.pathname);
       if (request.method === "DELETE" && match) {
