@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { CommentStore } from "./store";
 
 type ThreadWithId = vscode.CommentThread & { commentatorId?: string };
+type CommentWithId = vscode.Comment & { commentatorId: string; savedBody: string };
 
 export class VsCodeComments implements vscode.Disposable {
   private readonly controller = vscode.comments.createCommentController("commentator", "Commentator");
@@ -51,8 +52,37 @@ export class VsCodeComments implements vscode.Disposable {
     }
   }
 
-  async remove(thread: ThreadWithId): Promise<void> {
-    if (thread.commentatorId) await this.store.remove(thread.commentatorId);
+  edit(comment: CommentWithId): void {
+    const thread = this.threads.get(comment.commentatorId);
+    if (!thread) return;
+    comment.savedBody = typeof comment.body === "string" ? comment.body : comment.body.value;
+    comment.mode = vscode.CommentMode.Editing;
+    comment.contextValue = "editing";
+    thread.comments = [...thread.comments];
+  }
+
+  async save(comment: CommentWithId): Promise<void> {
+    const body = typeof comment.body === "string" ? comment.body : comment.body.value;
+    if (!body.trim()) {
+      void vscode.window.showWarningMessage("A comment cannot be empty.");
+      return;
+    }
+    await this.store.update(comment.commentatorId, body);
+  }
+
+  cancelEdit(comment: CommentWithId): void {
+    const thread = this.threads.get(comment.commentatorId);
+    if (!thread) return;
+    const markdown = new vscode.MarkdownString(comment.savedBody);
+    markdown.isTrusted = false;
+    comment.body = markdown;
+    comment.mode = vscode.CommentMode.Preview;
+    comment.contextValue = "preview";
+    thread.comments = [...thread.comments];
+  }
+
+  async remove(comment: CommentWithId): Promise<void> {
+    await this.store.remove(comment.commentatorId);
   }
 
   private render(): void {
@@ -61,11 +91,13 @@ export class VsCodeComments implements vscode.Disposable {
       remaining.delete(comment.id);
       const markdown = new vscode.MarkdownString(comment.body);
       markdown.isTrusted = false;
-      const rendered: vscode.Comment = {
+      const rendered: CommentWithId = {
         body: markdown,
         author: { name: comment.author },
         mode: vscode.CommentMode.Preview,
-        contextValue: comment.source
+        contextValue: "preview",
+        commentatorId: comment.id,
+        savedBody: comment.body
       };
       const range = new vscode.Range(
         comment.range.start.line, comment.range.start.character,

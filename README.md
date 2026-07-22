@@ -2,6 +2,8 @@
 
 Commentator is an MVP VS Code extension for a shared, live review-comment channel between a human in VS Code and local AI tooling. VS Code remains the diff/editor UI and language-aware navigation surface; the extension owns one comment store and exposes it both through VS Code's native Comments UI and a loopback-only HTTP API.
 
+The Commentator Activity Bar view also provides an overall review comment and export controls. **Copy as Markdown** combines the overall text, inline source snippets, and review comments for agents that cannot reach the local API. **Include AI-generated comments** controls whether agent-authored comments are included in that export. The same view can copy the live Agent Instructions for agents that can use the bundled CLI.
+
 ## Try it
 
 ```bash

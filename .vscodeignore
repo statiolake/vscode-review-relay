@@ -1,4 +1,7 @@
 .vscode/**
+.gitignore
+.vscodeignore
+*.vsix
 cmd/**
 scripts/**
 src/**
@@ -7,3 +10,4 @@ dist-test/**
 node_modules/**
 tsconfig*.json
 go.mod
+package-lock.json

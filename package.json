@@ -4,28 +4,66 @@
   "description": "Live review comments shared between VS Code and local AI tools.",
   "version": "0.1.0",
   "publisher": "statiolake",
+  "license": "MIT",
+  "author": "statiolake",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/statiolake/vscode-commentator.git"
+  },
+  "homepage": "https://github.com/statiolake/vscode-commentator#readme",
+  "bugs": {
+    "url": "https://github.com/statiolake/vscode-commentator/issues"
+  },
+  "keywords": ["review", "comments", "coding agent", "AI", "diff"],
   "engines": { "vscode": "^1.96.0" },
   "categories": ["Other"],
   "activationEvents": ["onStartupFinished"],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "commentator", "title": "Commentator", "icon": "media/icon.svg" }
+      ]
+    },
+    "views": {
+      "commentator": [
+        { "id": "commentator.review", "name": "Review", "type": "webview" }
+      ]
+    },
     "commands": [
       { "command": "commentator.addComment", "title": "Commentator: Add Comment" },
-      { "command": "commentator.deleteComment", "title": "Delete Comment" },
+      { "command": "commentator.editComment", "title": "Edit", "icon": "$(edit)" },
+      { "command": "commentator.saveComment", "title": "Save", "icon": "$(check)" },
+      { "command": "commentator.cancelEditComment", "title": "Cancel", "icon": "$(close)" },
+      { "command": "commentator.deleteComment", "title": "Delete", "icon": "$(trash)" },
       { "command": "commentator.submitComment", "title": "Add Comment" },
       { "command": "commentator.copyEndpoint", "title": "Commentator: Copy API Endpoint" },
       { "command": "commentator.copyAgentInstructions", "title": "Commentator: Copy Agent Instructions" },
+      { "command": "commentator.copyMarkdown", "title": "Commentator: Copy as Markdown", "icon": "$(clippy)" },
+      { "command": "commentator.clearReview", "title": "Commentator: Clear Review", "icon": "$(clear-all)" },
       { "command": "commentator.clearComments", "title": "Commentator: Clear All Comments" }
     ],
     "menus": {
+      "commandPalette": [
+        { "command": "commentator.submitComment", "when": "false" },
+        { "command": "commentator.editComment", "when": "false" },
+        { "command": "commentator.saveComment", "when": "false" },
+        { "command": "commentator.cancelEditComment", "when": "false" },
+        { "command": "commentator.deleteComment", "when": "false" }
+      ],
       "editor/context": [
         { "command": "commentator.addComment", "group": "navigation@50", "when": "editorTextFocus" }
       ],
       "comments/commentEditor/submit": [
         { "command": "commentator.submitComment", "when": "commentController == commentator" }
       ],
-      "comments/commentThread/title": [
-        { "command": "commentator.deleteComment", "group": "inline", "when": "commentController == commentator" }
+      "comments/comment/title": [
+        { "command": "commentator.editComment", "group": "inline@1", "when": "commentController == commentator && comment == preview" },
+        { "command": "commentator.deleteComment", "group": "inline@2", "when": "commentController == commentator && comment == preview" }
+      ],
+      "comments/comment/context": [
+        { "command": "commentator.saveComment", "group": "inline@1", "when": "commentController == commentator && comment == editing" },
+        { "command": "commentator.cancelEditComment", "group": "inline@2", "when": "commentController == commentator && comment == editing" }
       ]
     },
     "configuration": {
@@ -46,6 +84,8 @@
     "build": "npm run build:cli && esbuild src/extension.ts --bundle --platform=node --external:vscode --outfile=dist/extension.js",
     "build:cli": "node scripts/build-cli.mjs",
     "build:cli:all": "node scripts/build-cli.mjs --all",
+    "package": "vsce package",
+    "publish": "vsce publish",
     "check": "tsc --noEmit",
     "test": "npm run test:compile && node --test dist-test/test/**/*.test.js && go test ./...",
     "test:compile": "tsc -p tsconfig.test.json"
@@ -53,6 +93,7 @@
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/vscode": "^1.96.0",
+    "@vscode/vsce": "^3.9.1",
     "esbuild": "^0.24.2",
     "typescript": "^5.7.2"
   }

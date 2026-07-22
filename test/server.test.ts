@@ -12,8 +12,8 @@ function createNavigationSpy() {
 test("comments round-trip through the loopback API", async () => {
   let persisted: ReviewComment[] = [];
   const store = new CommentStore({
-    load: () => persisted,
-    save: async comments => { persisted = [...comments]; }
+    load: () => ({ comments: persisted, overall: "", includeAiGenerated: true }),
+    save: async state => { persisted = [...state.comments]; }
   });
   const navigation = createNavigationSpy();
   const server = new CommentServer(store, navigation.service);
@@ -67,7 +67,10 @@ test("comments round-trip through the loopback API", async () => {
 });
 
 test("write endpoints reject browser-origin requests", async () => {
-  const store = new CommentStore({ load: () => [], save: async () => undefined });
+  const store = new CommentStore({
+    load: () => ({ comments: [], overall: "", includeAiGenerated: true }),
+    save: async () => undefined
+  });
   const server = new CommentServer(store, createNavigationSpy().service);
   const port = await server.start(0);
   try {
