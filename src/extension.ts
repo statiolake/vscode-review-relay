@@ -8,7 +8,6 @@ import { renderReviewMarkdown } from "./markdown";
 import { ReviewViewProvider } from "./reviewView";
 import { SessionRegistration } from "./sessionRegistry";
 import { CommentsTreeElement, CommentsTreeProvider } from "./commentsTree";
-import { showRemovalResult } from "./removal";
 
 const STORAGE_KEY = "reviewRelay.state.v1";
 
@@ -103,11 +102,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
     vscode.commands.registerCommand("reviewRelay.deleteTreeComment", async (element: CommentsTreeElement) => {
       if (element?.kind !== "comment") return;
-      showRemovalResult(await store.remove(element.id));
+      await store.remove(element.id);
     }),
     vscode.commands.registerCommand("reviewRelay.deleteTreeLocation", async (element: CommentsTreeElement) => {
       if (element?.kind !== "location") return;
-      showRemovalResult(await store.removeMany(commentsTree.commentIds(element)));
+      await store.removeMany(commentsTree.commentIds(element));
     }),
     vscode.commands.registerCommand("reviewRelay.copyEndpoint", async () => {
       await vscode.env.clipboard.writeText(endpoint);
@@ -128,7 +127,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
     vscode.commands.registerCommand("reviewRelay.clearComments", async () => {
       const answer = await vscode.window.showWarningMessage("Delete all Review Relay comments?", { modal: true }, "Delete All");
-      if (answer === "Delete All") showRemovalResult(await store.clear());
+      if (answer === "Delete All") await store.clear();
     })
   );
 }

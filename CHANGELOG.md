@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.1.3
 
 - Add a dedicated Review Relay comment tree grouped by file and source location.
 - Include the overall review in live comment-list responses.
 - Report the number of remaining comments after deletion.
+- Keep deletion counts in CLI responses without showing extra VS Code notifications.
 
 ## 0.1.2
 
