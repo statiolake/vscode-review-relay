@@ -27,8 +27,8 @@
     },
     "views": {
       "reviewRelay": [
-        { "id": "reviewRelay.review", "name": "Review", "type": "webview" },
-        { "id": "reviewRelay.comments", "name": "Comments" }
+        { "id": "reviewRelay.comments", "name": "Comments" },
+        { "id": "reviewRelay.review", "name": "Review", "type": "webview" }
       ]
     },
     "commands": [
