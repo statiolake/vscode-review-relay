@@ -35,7 +35,7 @@ export class CommentServer {
       if (request.method === "GET" && url.pathname === "/v1/comments") {
         const uri = url.searchParams.get("uri");
         const comments = uri ? this.store.list().filter(comment => comment.uri === uri) : this.store.list();
-        return this.json(response, 200, { comments });
+        return this.json(response, 200, { overall: this.store.getOverall(), comments });
       }
       if (request.method === "POST" && url.pathname === "/v1/comments") {
         if (!request.headers["content-type"]?.startsWith("application/json")) return this.json(response, 415, { error: "Content-Type must be application/json." });
@@ -60,11 +60,17 @@ export class CommentServer {
       }
       const match = /^\/v1\/comments\/([^/]+)$/.exec(url.pathname);
       if (request.method === "DELETE" && match) {
-        const removed = await this.store.remove(decodeURIComponent(match[1]));
-        return this.json(response, removed ? 200 : 404, removed ? { removed: true } : { error: "Comment not found." });
+        const result = await this.store.remove(decodeURIComponent(match[1]));
+        return this.json(
+          response,
+          result.removed > 0 ? 200 : 404,
+          result.removed > 0
+            ? { removed: true, remainingComments: result.remainingComments }
+            : { error: "Comment not found.", remainingComments: result.remainingComments }
+        );
       }
       if (request.method === "DELETE" && url.pathname === "/v1/comments") {
-        return this.json(response, 200, { removed: await this.store.clear() });
+        return this.json(response, 200, await this.store.clear());
       }
       this.json(response, 404, { error: "Not found." });
     } catch (error) {

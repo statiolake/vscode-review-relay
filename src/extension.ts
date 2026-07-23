@@ -7,6 +7,8 @@ import { VsCodeNavigationService } from "./navigation";
 import { renderReviewMarkdown } from "./markdown";
 import { ReviewViewProvider } from "./reviewView";
 import { SessionRegistration } from "./sessionRegistry";
+import { CommentsTreeElement, CommentsTreeProvider } from "./commentsTree";
+import { showRemovalResult } from "./removal";
 
 const STORAGE_KEY = "reviewRelay.state.v1";
 
@@ -20,7 +22,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     save: state => context.workspaceState.update(STORAGE_KEY, state)
   });
   const comments = new VsCodeComments(store);
-  const server = new CommentServer(store, new VsCodeNavigationService());
+  const navigation = new VsCodeNavigationService();
+  const server = new CommentServer(store, navigation);
 
   let port: number;
   try {
@@ -48,6 +51,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const cliName = process.platform === "win32" ? "review-relay.exe" : "review-relay";
   const cliPath = context.asAbsolutePath(`bin/${cliPlatform}-${cliArch}/${cliName}`);
   const reviewView = new ReviewViewProvider(store);
+  const commentsTree = new CommentsTreeProvider(store);
   const copyAgentInstructions = async () => {
     const instructions = createAgentInstructions({
       endpoint,
@@ -69,6 +73,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     comments,
     reviewView,
+    commentsTree,
     status,
     { dispose: () => { void session.dispose(); void server.stop(); } },
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -79,12 +84,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerWebviewViewProvider(ReviewViewProvider.viewType, reviewView, {
       webviewOptions: { retainContextWhenHidden: true }
     }),
+    vscode.window.registerTreeDataProvider(CommentsTreeProvider.viewType, commentsTree),
     vscode.commands.registerCommand("reviewRelay.addComment", () => comments.addAtSelection()),
     vscode.commands.registerCommand("reviewRelay.submitComment", (reply: vscode.CommentReply) => comments.submit(reply)),
     vscode.commands.registerCommand("reviewRelay.editComment", comment => comments.edit(comment)),
     vscode.commands.registerCommand("reviewRelay.saveComment", comment => comments.save(comment)),
     vscode.commands.registerCommand("reviewRelay.cancelEditComment", comment => comments.cancelEdit(comment)),
     vscode.commands.registerCommand("reviewRelay.deleteComment", comment => comments.remove(comment)),
+    vscode.commands.registerCommand("reviewRelay.navigateTreeComment", async (id: string) => {
+      const comment = store.list().find(candidate => candidate.id === id);
+      if (!comment) return;
+      await navigation.navigate({
+        uri: comment.uri,
+        line: comment.range.start.line,
+        endLine: comment.range.end.line,
+        commentId: comment.id
+      });
+    }),
+    vscode.commands.registerCommand("reviewRelay.deleteTreeComment", async (element: CommentsTreeElement) => {
+      if (element?.kind !== "comment") return;
+      showRemovalResult(await store.remove(element.id));
+    }),
+    vscode.commands.registerCommand("reviewRelay.deleteTreeLocation", async (element: CommentsTreeElement) => {
+      if (element?.kind !== "location") return;
+      showRemovalResult(await store.removeMany(commentsTree.commentIds(element)));
+    }),
     vscode.commands.registerCommand("reviewRelay.copyEndpoint", async () => {
       await vscode.env.clipboard.writeText(endpoint);
       void vscode.window.showInformationMessage(`Copied ${endpoint}`);
@@ -104,7 +128,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
     vscode.commands.registerCommand("reviewRelay.clearComments", async () => {
       const answer = await vscode.window.showWarningMessage("Delete all Review Relay comments?", { modal: true }, "Delete All");
-      if (answer === "Delete All") await store.clear();
+      if (answer === "Delete All") showRemovalResult(await store.clear());
     })
   );
 }

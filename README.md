@@ -2,7 +2,7 @@
 
 Review Relay is a shared, live review-comment channel between a human in VS Code and local AI tooling. VS Code remains the diff/editor UI and language-aware navigation surface; the extension owns one comment store and exposes it both through VS Code's native Comments UI and a loopback-only HTTP API.
 
-The Review Relay Activity Bar view also provides an overall review comment and export controls. **Copy as Markdown** combines the overall text, inline source snippets, and review comments for agents that cannot reach the local API. **Include AI-generated comments** controls whether agent-authored comments are included in that export. The same view can copy the live Agent Instructions for agents that can use the bundled CLI.
+The Review Relay Activity Bar contains both the overall review controls and a dedicated comment tree grouped by file and source location. Selecting a location or comment navigates to it without relying on VS Code's built-in Comments view. **Copy as Markdown** combines the overall text, inline source snippets, and review comments for agents that cannot reach the local API. **Include AI-generated comments** controls whether agent-authored comments are included in that export. The same view can copy the live Agent Instructions for agents that can use the bundled CLI.
 
 ## Try it
 
@@ -37,12 +37,12 @@ review-relay comments remove COMMENT_ID
 review-relay comments clear
 ```
 
-Comments persist in VS Code workspace storage and updates from either side immediately redraw native comment threads. The server binds only to `127.0.0.1`, rejects browser-origin requests, requires JSON for writes, and caps request bodies at 64 KiB.
+Comments persist in VS Code workspace storage and updates from either side immediately redraw both the Review Relay comment tree and native comment threads. Comment-list responses include the overall review, and deletion responses report how many inline comments remain. The server binds only to `127.0.0.1`, rejects browser-origin requests, requires JSON for writes, and caps request bodies at 64 KiB.
 
 ## API
 
 - `GET /health`
-- `GET /v1/comments[?uri=...]`
+- `GET /v1/comments[?uri=...]` returns `{ overall, comments }`
 - `POST /v1/comments` with `{ uri, line, endLine?, body, author?, source? }`
 - `POST /v1/navigate` with `{ commentId }` or `{ uri, line, endLine? }`
 - `DELETE /v1/comments/:id`

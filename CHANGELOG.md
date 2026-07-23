@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add a dedicated Review Relay comment tree grouped by file and source location.
+- Include the overall review in live comment-list responses.
+- Report the number of remaining comments after deletion.
+
 ## 0.1.2
 
 - Show the Add Comment action in VS Code's native new-comment editor.

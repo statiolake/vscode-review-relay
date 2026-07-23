@@ -14,10 +14,12 @@ test("agent instructions contain the live endpoint, workspace and complete inter
   assert.match(instructions, /--workspace "\/repo"/);
   assert.match(instructions, /\/extension\/bin\/darwin-arm64\/review-relay/);
   assert.match(instructions, /GET \/v1\/comments/);
+  assert.match(instructions, /"overall": string/);
   assert.match(instructions, /POST \/v1\/comments/);
   assert.match(instructions, /POST \/v1\/navigate/);
   assert.match(instructions, /DELETE \/v1\/comments\/<id>/);
   assert.match(instructions, /zero-based and inclusive/);
   assert.match(instructions, /Do not delete comments unless the user explicitly asks/);
+  assert.match(instructions, /remainingComments/);
   assert.match(instructions, /Copy Agent Instructions.*again/);
 });

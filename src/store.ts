@@ -12,6 +12,11 @@ export interface ReviewRelayState {
   includeAiGenerated: boolean;
 }
 
+export interface RemoveCommentsResult {
+  removed: number;
+  remainingComments: number;
+}
+
 export class CommentStore {
   private state: ReviewRelayState;
   private readonly listeners = new Set<() => void>();
@@ -42,12 +47,18 @@ export class CommentStore {
     return comment;
   }
 
-  async remove(id: string): Promise<boolean> {
-    const next = this.state.comments.filter(comment => comment.id !== id);
-    if (next.length === this.state.comments.length) return false;
+  async remove(id: string): Promise<RemoveCommentsResult> {
+    return this.removeMany([id]);
+  }
+
+  async removeMany(ids: readonly string[]): Promise<RemoveCommentsResult> {
+    const removedIds = new Set(ids);
+    const next = this.state.comments.filter(comment => !removedIds.has(comment.id));
+    const removed = this.state.comments.length - next.length;
+    if (removed === 0) return { removed: 0, remainingComments: this.state.comments.length };
     this.state = { ...this.state, comments: next };
     await this.commit();
-    return true;
+    return { removed, remainingComments: next.length };
   }
 
   async update(id: string, body: string): Promise<boolean> {
@@ -65,12 +76,12 @@ export class CommentStore {
     return true;
   }
 
-  async clear(): Promise<number> {
-    const count = this.state.comments.length;
-    if (count === 0) return 0;
+  async clear(): Promise<RemoveCommentsResult> {
+    const removed = this.state.comments.length;
+    if (removed === 0) return { removed: 0, remainingComments: 0 };
     this.state = { ...this.state, comments: [] };
     await this.commit();
-    return count;
+    return { removed, remainingComments: 0 };
   }
 
   async setOverall(overall: string): Promise<void> {

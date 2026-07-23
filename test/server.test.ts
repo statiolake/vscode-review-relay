@@ -12,7 +12,7 @@ function createNavigationSpy() {
 test("comments round-trip through the loopback API", async () => {
   let persisted: ReviewComment[] = [];
   const store = new CommentStore({
-    load: () => ({ comments: persisted, overall: "", includeAiGenerated: true }),
+    load: () => ({ comments: persisted, overall: "Review the error handling.", includeAiGenerated: true }),
     save: async state => { persisted = [...state.comments]; }
   });
   const navigation = createNavigationSpy();
@@ -32,7 +32,7 @@ test("comments round-trip through the loopback API", async () => {
     assert.equal(created.comment.source, "agent");
 
     const list = await fetch(`${origin}/v1/comments`);
-    assert.deepEqual(await list.json(), { comments: [created.comment] });
+    assert.deepEqual(await list.json(), { overall: "Review the error handling.", comments: [created.comment] });
 
     const navigate = await fetch(`${origin}/v1/navigate`, {
       method: "POST",
@@ -58,9 +58,18 @@ test("comments round-trip through the loopback API", async () => {
     assert.equal(missing.status, 404);
     assert.deepEqual(await missing.json(), { error: "Comment not found." });
 
+    const secondCreate = await fetch(`${origin}/v1/comments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ uri: "file:///repo/other.ts", line: 9, body: "One more comment" })
+    });
+    assert.equal(secondCreate.status, 201);
+    const second = await secondCreate.json() as { comment: ReviewComment };
+
     const remove = await fetch(`${origin}/v1/comments/${created.comment.id}`, { method: "DELETE" });
     assert.equal(remove.status, 200);
-    assert.deepEqual(persisted, []);
+    assert.deepEqual(await remove.json(), { removed: true, remainingComments: 1 });
+    assert.deepEqual(persisted, [second.comment]);
   } finally {
     await server.stop();
   }

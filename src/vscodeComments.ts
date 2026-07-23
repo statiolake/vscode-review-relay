@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { CommentStore } from "./store";
+import { showRemovalResult } from "./removal";
 
 type ThreadWithId = vscode.CommentThread & { reviewRelayId?: string };
 type CommentWithId = vscode.Comment & { reviewRelayId: string; savedBody: string };
@@ -82,7 +83,7 @@ export class VsCodeComments implements vscode.Disposable {
   }
 
   async remove(comment: CommentWithId): Promise<void> {
-    await this.store.remove(comment.reviewRelayId);
+    showRemovalResult(await this.store.remove(comment.reviewRelayId));
   }
 
   private render(): void {

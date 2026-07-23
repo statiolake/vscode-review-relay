@@ -24,7 +24,7 @@ ${workspaces}
 
 ## Workflow
 
-1. Read the comments before starting work and whenever the user says they added or changed comments.
+1. Read the overall comment and inline comments before starting work and whenever the user says they changed the review.
 2. Treat human-authored comments as review instructions and inspect the referenced file and line.
 3. Use the API to add a comment when a concise, location-specific message is more useful than chat.
 4. Re-read the comments after writing so you can verify the live state.
@@ -51,7 +51,7 @@ All responses are JSON. The server only listens on 127.0.0.1.
 - GET /health
   Returns server health and API version.
 - GET /v1/comments
-  Returns { "comments": Comment[] }.
+  Returns { "overall": string, "comments": Comment[] }.
 - GET /v1/comments?uri=<encoded-file-uri>
   Filters comments by exact VS Code document URI.
 - POST /v1/comments
@@ -59,9 +59,9 @@ All responses are JSON. The server only listens on 127.0.0.1.
 - POST /v1/navigate
   Opens and reveals a location in VS Code. Send either { "commentId": "..." } or { "uri": "...", "line": 12, "endLine": 14 }. Do not combine target forms.
 - DELETE /v1/comments/<id>
-  Deletes one comment. Only use when explicitly requested.
+  Deletes one comment and returns the number of remaining comments. Only use when explicitly requested.
 - DELETE /v1/comments
-  Deletes every comment. Only use when explicitly requested.
+  Deletes every inline comment and returns the number removed. Only use when explicitly requested.
 
 Create request:
 
@@ -78,7 +78,7 @@ Create request:
 
 \`uri\` must be a VS Code document URI, normally an absolute \`file:///...\` URI. \`line\` and optional \`endLine\` are zero-based and inclusive. \`body\` is required. \`author\`, \`source\`, and \`endLine\` are optional; \`source\` is either \`human\` or \`agent\`.
 
-Comment response fields include \`id\`, \`uri\`, \`range.start\`, \`range.end\`, \`body\`, \`author\`, \`source\`, and \`createdAt\`. Range lines and characters are zero-based.
+Comment response fields include \`id\`, \`uri\`, \`range.start\`, \`range.end\`, \`body\`, \`author\`, \`source\`, and \`createdAt\`. Range lines and characters are zero-based. Delete responses include \`remainingComments\`; use it to notice when more review work remains.
 
 ## Examples
 
