@@ -2,7 +2,7 @@
   "name": "vscode-review-relay",
   "displayName": "Review Relay",
   "description": "Live review comments shared between VS Code and local AI tools.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "statiolake",
   "license": "MIT",
   "author": "statiolake",
@@ -54,8 +54,8 @@
       "editor/context": [
         { "command": "reviewRelay.addComment", "group": "navigation@50", "when": "editorTextFocus" }
       ],
-      "comments/commentEditor/submit": [
-        { "command": "reviewRelay.submitComment", "when": "commentController == review-relay" }
+      "comments/commentThread/context": [
+        { "command": "reviewRelay.submitComment", "group": "inline", "when": "commentController == review-relay && commentThreadIsEmpty" }
       ],
       "comments/comment/title": [
         { "command": "reviewRelay.editComment", "group": "inline@1", "when": "commentController == review-relay && comment == preview" },

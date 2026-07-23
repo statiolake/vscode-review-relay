@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Show the Add Comment action in VS Code's native new-comment editor.
+
 ## 0.1.1
 
 - Run each VS Code window on an available random port and let the CLI discover it from the workspace path.
