@@ -99,7 +99,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         line: comment.range.start.line,
         endLine: comment.range.end.line,
         commentId: comment.id
-      });
+      }, "user");
     }),
     vscode.commands.registerCommand("reviewRelay.deleteTreeComment", async (element: CommentsTreeElement) => {
       if (element?.kind !== "comment") return;

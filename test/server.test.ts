@@ -5,8 +5,15 @@ import { CommentStore } from "../src/store";
 import { ReviewComment } from "../src/model";
 
 function createNavigationSpy() {
-  const targets: Array<{ uri: string; line: number; endLine: number }> = [];
-  return { targets, service: { navigate: async (target: { uri: string; line: number; endLine: number }) => { targets.push(target); } } };
+  const targets: Array<{ target: { uri: string; line: number; endLine: number }; origin: "external" | "user" }> = [];
+  return {
+    targets,
+    service: {
+      navigate: async (target: { uri: string; line: number; endLine: number }, origin: "external" | "user") => {
+        targets.push({ target, origin });
+      }
+    }
+  };
 }
 
 test("comments round-trip through the loopback API", async () => {
@@ -40,7 +47,10 @@ test("comments round-trip through the loopback API", async () => {
       body: JSON.stringify({ commentId: created.comment.id })
     });
     assert.equal(navigate.status, 200);
-    assert.deepEqual(navigation.targets, [{ uri: "file:///repo/app.ts", line: 4, endLine: 4, commentId: created.comment.id }]);
+    assert.deepEqual(navigation.targets, [{
+      target: { uri: "file:///repo/app.ts", line: 4, endLine: 4, commentId: created.comment.id },
+      origin: "external"
+    }]);
 
     const navigateToLocation = await fetch(`${origin}/v1/navigate`, {
       method: "POST",
@@ -48,7 +58,10 @@ test("comments round-trip through the loopback API", async () => {
       body: JSON.stringify({ uri: "file:///repo/other.ts", line: 8, endLine: 10 })
     });
     assert.equal(navigateToLocation.status, 200);
-    assert.deepEqual(navigation.targets[1], { uri: "file:///repo/other.ts", line: 8, endLine: 10 });
+    assert.deepEqual(navigation.targets[1], {
+      target: { uri: "file:///repo/other.ts", line: 8, endLine: 10 },
+      origin: "external"
+    });
 
     const missing = await fetch(`${origin}/v1/navigate`, {
       method: "POST",

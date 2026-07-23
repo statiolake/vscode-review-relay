@@ -55,7 +55,7 @@ export class CommentServer {
         } else {
           target = { uri: input.uri, line: input.line, endLine: input.endLine ?? input.line };
         }
-        await this.navigation.navigate(target);
+        await this.navigation.navigate(target, "external");
         return this.json(response, 200, { navigated: target });
       }
       const match = /^\/v1\/comments\/([^/]+)$/.exec(url.pathname);
