@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.4
 
 - Add threaded replies across VS Code, the Review Relay tree, HTTP API, and bundled CLI.
 - Validate all comment inputs and persisted workspace state with strict domain schemas.
