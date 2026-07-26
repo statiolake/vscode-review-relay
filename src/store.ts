@@ -1,15 +1,21 @@
 import { randomUUID } from "node:crypto";
-import { CreateCommentInput, CreateReplyInput, ReviewComment } from "./model";
+import {
+  CreateCommentInput,
+  CreateReplyInput,
+  ReviewComment,
+  ReviewRelayState,
+  validateCommentBody,
+  validateCommentId,
+  validateCreateComment,
+  validateCreateReply,
+  validateIncludeAiGenerated,
+  validateOverall,
+  validateReviewRelayState
+} from "./model";
 
 export interface CommentPersistence {
-  load(): ReviewRelayState;
+  load(): unknown;
   save(state: ReviewRelayState): PromiseLike<void>;
-}
-
-export interface ReviewRelayState {
-  comments: ReviewComment[];
-  overall: string;
-  includeAiGenerated: boolean;
 }
 
 export interface RemoveCommentsResult {
@@ -22,7 +28,7 @@ export class CommentStore {
   private readonly listeners = new Set<() => void>();
 
   constructor(private readonly persistence: CommentPersistence) {
-    this.state = persistence.load();
+    this.state = validateReviewRelayState(persistence.load());
   }
 
   list(): readonly ReviewComment[] { return this.state.comments; }
@@ -30,6 +36,7 @@ export class CommentStore {
   includesAiGenerated(): boolean { return this.state.includeAiGenerated; }
 
   async add(input: CreateCommentInput): Promise<ReviewComment> {
+    input = validateCreateComment(input);
     const comment: ReviewComment = {
       id: randomUUID(),
       uri: input.uri,
@@ -48,6 +55,8 @@ export class CommentStore {
   }
 
   async reply(parentId: string, input: CreateReplyInput): Promise<ReviewComment | undefined> {
+    parentId = validateCommentId(parentId);
+    input = validateCreateReply(input);
     const parent = this.state.comments.find(comment => comment.id === parentId);
     if (!parent) return undefined;
     const comment: ReviewComment = {
@@ -84,11 +93,11 @@ export class CommentStore {
   }
 
   async remove(id: string): Promise<RemoveCommentsResult> {
-    return this.removeMany([id]);
+    return this.removeMany([validateCommentId(id)]);
   }
 
   async removeMany(ids: readonly string[]): Promise<RemoveCommentsResult> {
-    const removedIds = new Set(ids);
+    const removedIds = new Set(ids.map(validateCommentId));
     let changed = true;
     while (changed) {
       changed = false;
@@ -108,8 +117,8 @@ export class CommentStore {
   }
 
   async update(id: string, body: string): Promise<boolean> {
-    const trimmed = body.trim();
-    if (!trimmed) return false;
+    id = validateCommentId(id);
+    const trimmed = validateCommentBody(body);
     const index = this.state.comments.findIndex(comment => comment.id === id);
     if (index < 0) return false;
     this.state = {
@@ -131,12 +140,14 @@ export class CommentStore {
   }
 
   async setOverall(overall: string): Promise<void> {
+    overall = validateOverall(overall);
     if (overall === this.state.overall) return;
     this.state = { ...this.state, overall };
     await this.commit();
   }
 
   async setIncludeAiGenerated(includeAiGenerated: boolean): Promise<void> {
+    includeAiGenerated = validateIncludeAiGenerated(includeAiGenerated);
     if (includeAiGenerated === this.state.includeAiGenerated) return;
     this.state = { ...this.state, includeAiGenerated };
     await this.commit();
@@ -154,6 +165,7 @@ export class CommentStore {
   }
 
   private async commit(): Promise<void> {
+    this.state = validateReviewRelayState(this.state);
     await this.persistence.save(this.state);
     this.listeners.forEach(listener => listener());
   }

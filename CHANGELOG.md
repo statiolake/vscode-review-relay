@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Add threaded replies across VS Code, the Review Relay tree, HTTP API, and bundled CLI.
+- Validate all comment inputs and persisted workspace state with strict domain schemas.
+- Fail fast on corrupted state and offer a workspace-scoped emergency reset.
 
 ## 0.1.3
 

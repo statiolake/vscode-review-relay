@@ -1,56 +1,64 @@
 # Review Relay
 
-Review Relay is a shared, live review-comment channel between a human in VS Code and local AI tooling. VS Code remains the diff/editor UI and language-aware navigation surface; the extension owns one comment store and exposes it both through VS Code's native Comments UI and a loopback-only HTTP API.
+Review Relay turns VS Code comments into a live review channel between you and local coding agents.
 
-The Review Relay Activity Bar contains both the overall review controls and a dedicated comment tree grouped by file and source location. Selecting a location or comment navigates to it without relying on VS Code's built-in Comments view. **Copy as Markdown** combines the overall text, inline source snippets, and review comments for agents that cannot reach the local API. **Include AI-generated comments** controls whether agent-authored comments are included in that export. The same view can copy the live Agent Instructions for agents that can use the bundled CLI.
+Add comments to code with VS Code's native comment UI. Agents can read them, reply in the same threads, add their own comments, and navigate your editor through a loopback-only API and bundled CLI. For agents running in containers or without local access, copy the review as Markdown instead.
 
-## Try it
+## Getting started
+
+1. Install **Review Relay** from the VS Code Marketplace.
+2. Open a project and select a line or range.
+3. Run **Review Relay: Add Comment** from the Command Palette or editor context menu.
+4. Open the Review Relay icon in the Activity Bar to browse comments and add an overall review.
+
+Comments are also shown inline through VS Code's native Comments UI. You can reply to, edit, or delete any Review Relay comment there.
+
+## Connect a coding agent
+
+Run **Review Relay: Copy Agent Instructions** and paste the result into your agent chat. The instructions contain the current workspace, connection details, complete interface, and ready-to-run commands.
+
+Review Relay includes a dependency-free CLI for macOS, Linux, and Windows. Each VS Code window uses an available random port, and the CLI discovers the correct session from the workspace path. Multiple projects can therefore run concurrently.
+
+Agents can:
+
+- Read the overall review and all inline threads
+- Add and reply to comments
+- Navigate VS Code to a comment or source location
+- Delete comments when explicitly requested
+
+If an agent cannot access the host loopback interface or filesystem, use **Copy as Markdown** in the Review Relay view. **Include AI-generated comments** controls whether agent comments are included.
+
+## Local and safe by default
+
+- The API listens only on `127.0.0.1`.
+- Browser-origin requests are rejected.
+- API, UI, and persisted data use the same strict domain validation.
+- Document URIs are parsed with VS Code-compatible semantics.
+- No review data is sent to an external service by this extension.
+
+If saved workspace data is corrupted, Review Relay stops before rendering it and shows the validation error. **Reset Project Data** removes only Review Relay's opaque state for that workspace and reloads the window.
+
+## CLI and API
+
+The copied Agent Instructions are the recommended reference because they include the live executable path and endpoint. The core CLI commands are:
+
+```text
+review-relay comments list
+review-relay comments add --uri URI --line N --body TEXT
+review-relay comments reply COMMENT_ID --body TEXT
+review-relay comments remove COMMENT_ID
+review-relay comments clear
+review-relay navigate --comment COMMENT_ID
+```
+
+The HTTP API exposes the corresponding `/health`, `/v1/comments`, `/v1/comments/:id/replies`, and `/v1/navigate` resources. Line numbers are zero-based.
+
+## Development
 
 ```bash
 npm install
+npm test
 npm run build
 ```
 
-Open this directory in VS Code and run the `Extension` launch configuration, or press F5. Select code and run **Review Relay: Add Comment**. The status bar shows that the API is running; click it to copy the endpoint.
-
-To connect an AI agent, run **Review Relay: Copy Agent Instructions** from the Command Palette and paste the copied Markdown into the agent chat. It contains the live endpoint, open workspace URIs, interface contract, safety rules, and ready-to-run CLI examples.
-
-The extension bundles a dependency-free Go CLI for the current OS and architecture. Agent instructions include its absolute path and workspace-specific commands, so agents do not need Node.js, curl, or jq. Run `npm run build:cli:all` before packaging a cross-platform VSIX.
-
-Each VS Code window binds an available random loopback port and registers its endpoint against its workspace folders. The CLI discovers the right window from `--workspace PATH`, or from its current directory when that option is omitted. This allows multiple projects to use Review Relay concurrently without coordinating port numbers. `--endpoint URL` remains available as an explicit override.
-
-```bash
-# Read all comments
-review-relay --workspace /absolute/path/to/project comments list
-
-# Add an AI comment (line numbers are zero-based; uri is a VS Code URI)
-review-relay --workspace /absolute/path/to/project comments add \
-  --uri file:///absolute/path/src/app.ts --line 12 \
-  --body 'Should this error be propagated?' --author Codex
-
-# Reply in the same thread
-review-relay --workspace /absolute/path/to/project comments reply COMMENT_ID \
-  --body 'Yes—this now propagates the original error.' --author Codex
-
-# Open a comment in VS Code
-review-relay --workspace /absolute/path/to/project navigate --comment COMMENT_ID
-
-# Filter, remove one, or clear all
-review-relay comments list --uri file:///absolute/path/src/app.ts
-review-relay comments remove COMMENT_ID
-review-relay comments clear
-```
-
-Comments persist in VS Code workspace storage and updates from either side immediately redraw both the Review Relay comment tree and native comment threads. Comment-list responses include the overall review, and deletion responses report how many inline comments remain. The server binds only to `127.0.0.1`, rejects browser-origin requests, requires JSON for writes, and caps request bodies at 64 KiB.
-
-## API
-
-- `GET /health`
-- `GET /v1/comments[?uri=...]` returns `{ overall, comments }`
-- `POST /v1/comments` with `{ uri, line, endLine?, body, author?, source? }`
-- `POST /v1/comments/:id/replies` with `{ body, author?, source? }`
-- `POST /v1/navigate` with `{ commentId }` or `{ uri, line, endLine? }`
-- `DELETE /v1/comments/:id`
-- `DELETE /v1/comments`
-
-This MVP deliberately uses a small HTTP resource API rather than coupling agents to VS Code commands. A future CLI or MCP server can be a thin client over the same API without moving comment ownership out of the extension.
+Press F5 in VS Code to launch an Extension Development Host. `npm run package` builds the cross-platform CLIs and creates a VSIX.

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { CommentServer } from "./server";
-import { CommentStore, ReviewRelayState } from "./store";
+import { CommentStore } from "./store";
 import { VsCodeComments } from "./vscodeComments";
 import { createAgentInstructions } from "./agentInstructions";
 import { VsCodeNavigationService } from "./navigation";
@@ -8,18 +8,16 @@ import { renderReviewMarkdown } from "./markdown";
 import { ReviewViewProvider } from "./reviewView";
 import { SessionRegistration } from "./sessionRegistry";
 import { CommentsTreeElement, CommentsTreeProvider } from "./commentsTree";
-
-const STORAGE_KEY = "reviewRelay.state.v1";
+import { createWorkspacePersistence, resetWorkspaceData } from "./workspacePersistence";
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const store = new CommentStore({
-    load: () => context.workspaceState.get<ReviewRelayState>(STORAGE_KEY) ?? {
-      comments: [],
-      overall: "",
-      includeAiGenerated: true
-    },
-    save: state => context.workspaceState.update(STORAGE_KEY, state)
-  });
+  let store: CommentStore;
+  try {
+    store = new CommentStore(createWorkspacePersistence(context.workspaceState));
+  } catch (error) {
+    await offerCorruptStateReset(context, error);
+    return;
+  }
   const comments = new VsCodeComments(store);
   const navigation = new VsCodeNavigationService();
   const server = new CommentServer(store, navigation);
@@ -134,3 +132,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export function deactivate(): void {}
+
+async function offerCorruptStateReset(context: vscode.ExtensionContext, error: unknown): Promise<void> {
+  const reason = error instanceof Error ? error.message : String(error);
+  const action = await vscode.window.showErrorMessage(
+    `Review Relay could not load this workspace because its stored data is corrupted. ${reason}`,
+    "Reset Project Data"
+  );
+  if (action !== "Reset Project Data") return;
+
+  try {
+    await resetWorkspaceData(context.workspaceState);
+  } catch (resetError) {
+    const resetReason = resetError instanceof Error ? resetError.message : String(resetError);
+    await vscode.window.showErrorMessage(`Review Relay could not reset the corrupted workspace data. ${resetReason}`);
+    return;
+  }
+
+  await vscode.commands.executeCommand("workbench.action.reloadWindow");
+}

@@ -52,7 +52,8 @@ test("comments round-trip through the loopback API", async () => {
     assert.equal(replied.comment.uri, created.comment.uri);
     assert.deepEqual(replied.comment.range, created.comment.range);
 
-    const missingReply = await fetch(`${origin}/v1/comments/missing/replies`, {
+    const missingId = "00000000-0000-4000-8000-000000000099";
+    const missingReply = await fetch(`${origin}/v1/comments/${missingId}/replies`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ body: "No parent" })
@@ -84,7 +85,7 @@ test("comments round-trip through the loopback API", async () => {
     const missing = await fetch(`${origin}/v1/navigate`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ commentId: "missing" })
+      body: JSON.stringify({ commentId: missingId })
     });
     assert.equal(missing.status, 404);
     assert.deepEqual(await missing.json(), { error: "Comment not found." });
@@ -120,6 +121,29 @@ test("write endpoints reject browser-origin requests", async () => {
       body: "{}"
     });
     assert.equal(response.status, 403);
+  } finally {
+    await server.stop();
+  }
+});
+
+test("API rejects invalid comments before they reach persistence", async () => {
+  let saveCount = 0;
+  const store = new CommentStore({
+    load: () => ({ comments: [], overall: "", includeAiGenerated: true }),
+    save: async () => { saveCount += 1; }
+  });
+  const server = new CommentServer(store, createNavigationSpy().service);
+  const port = await server.start(0);
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/comments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ uri: "not a URI", line: 0, body: "This must not be stored" })
+    });
+    assert.equal(response.status, 400);
+    assert.match((await response.json() as { error: string }).error, /valid absolute VS Code document URI/);
+    assert.equal(saveCount, 0);
+    assert.deepEqual(store.list(), []);
   } finally {
     await server.stop();
   }

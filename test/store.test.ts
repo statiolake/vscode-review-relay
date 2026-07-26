@@ -3,12 +3,22 @@ import test from "node:test";
 import { ReviewComment } from "../src/model";
 import { CommentStore } from "../src/store";
 
-function comment(id: string): ReviewComment {
+const ids = {
+  one: "00000000-0000-4000-8000-000000000001",
+  two: "00000000-0000-4000-8000-000000000002",
+  root: "00000000-0000-4000-8000-000000000003",
+  first: "00000000-0000-4000-8000-000000000004",
+  second: "00000000-0000-4000-8000-000000000005",
+  comment: "00000000-0000-4000-8000-000000000006",
+  missing: "00000000-0000-4000-8000-000000000099"
+} as const;
+
+function comment(id: string, body = id): ReviewComment {
   return {
     id,
     uri: "file:///repo/app.ts",
     range: { start: { line: 2, character: 0 }, end: { line: 2, character: 0 } },
-    body: id,
+    body,
     author: "Human",
     source: "human",
     createdAt: "2026-01-01T00:00:00.000Z"
@@ -17,7 +27,7 @@ function comment(id: string): ReviewComment {
 
 test("updates a comment body without changing its identity", async () => {
   const original: ReviewComment = {
-    id: "comment-1",
+    id: ids.comment,
     uri: "file:///repo/app.ts",
     range: { start: { line: 2, character: 0 }, end: { line: 2, character: 0 } },
     body: "Before",
@@ -31,56 +41,56 @@ test("updates a comment body without changing its identity", async () => {
     save: async state => { persisted = [...state.comments]; }
   });
 
-  assert.equal(await store.update("comment-1", "  After  "), true);
+  assert.equal(await store.update(ids.comment, "  After  "), true);
   assert.deepEqual(persisted, [{ ...original, body: "After" }]);
-  assert.equal(await store.update("missing", "Nope"), false);
+  assert.equal(await store.update(ids.missing, "Nope"), false);
 });
 
 test("reports remaining comments after removal", async () => {
   const store = new CommentStore({
     load: () => ({
-      comments: [comment("one"), comment("two")],
+      comments: [comment(ids.one, "one"), comment(ids.two, "two")],
       overall: "",
       includeAiGenerated: true
     }),
     save: async () => undefined
   });
 
-  assert.deepEqual(await store.remove("one"), { removed: 1, remainingComments: 1 });
-  assert.deepEqual(await store.remove("missing"), { removed: 0, remainingComments: 1 });
+  assert.deepEqual(await store.remove(ids.one), { removed: 1, remainingComments: 1 });
+  assert.deepEqual(await store.remove(ids.missing), { removed: 0, remainingComments: 1 });
 });
 
 test("stores replies in a thread and cascades deletion from their parent", async () => {
-  const root = comment("root");
+  const root = comment(ids.root, "root");
   let persisted = [root];
   const store = new CommentStore({
     load: () => ({ comments: persisted, overall: "", includeAiGenerated: true }),
     save: async state => { persisted = [...state.comments]; }
   });
 
-  const reply = await store.reply("root", { body: "  Reply  ", author: "Codex", source: "agent" });
+  const reply = await store.reply(ids.root, { body: "  Reply  ", author: "Codex", source: "agent" });
   assert.ok(reply);
-  assert.equal(reply.parentId, "root");
+  assert.equal(reply.parentId, ids.root);
   assert.equal(reply.body, "Reply");
-  assert.equal(store.rootId(reply.id), "root");
-  assert.deepEqual(store.thread("root").map(item => item.id), ["root", reply.id]);
-  assert.equal(await store.reply("missing", { body: "No parent" }), undefined);
+  assert.equal(store.rootId(reply.id), ids.root);
+  assert.deepEqual(store.thread(ids.root).map(item => item.id), [ids.root, reply.id]);
+  assert.equal(await store.reply(ids.missing, { body: "No parent" }), undefined);
 
-  assert.deepEqual(await store.remove("root"), { removed: 2, remainingComments: 0 });
+  assert.deepEqual(await store.remove(ids.root), { removed: 2, remainingComments: 0 });
   assert.deepEqual(persisted, []);
 });
 
 test("deleting one reply preserves its parent and sibling replies", async () => {
-  const root = comment("root");
-  const first = { ...comment("first"), parentId: "root" };
-  const second = { ...comment("second"), parentId: "root" };
+  const root = comment(ids.root, "root");
+  const first = { ...comment(ids.first, "first"), parentId: ids.root };
+  const second = { ...comment(ids.second, "second"), parentId: ids.root };
   const store = new CommentStore({
     load: () => ({ comments: [root, first, second], overall: "", includeAiGenerated: true }),
     save: async () => undefined
   });
 
-  assert.deepEqual(await store.remove("first"), { removed: 1, remainingComments: 2 });
-  assert.deepEqual(store.list().map(item => item.id), ["root", "second"]);
+  assert.deepEqual(await store.remove(ids.first), { removed: 1, remainingComments: 2 });
+  assert.deepEqual(store.list().map(item => item.id), [ids.root, ids.second]);
 });
 
 test("persists overall review text and the AI export preference in the shared state", async () => {
@@ -100,4 +110,17 @@ test("persists overall review text and the AI export preference in the shared st
     overall: "Check the error-handling strategy.",
     includeAiGenerated: false
   });
+});
+
+test("fails fast without saving when persisted state is corrupted", () => {
+  let saveCount = 0;
+  assert.throws(() => new CommentStore({
+    load: () => ({
+      comments: [{ ...comment(ids.one), uri: "not-a-uri" }],
+      overall: "",
+      includeAiGenerated: true
+    }),
+    save: async () => { saveCount += 1; }
+  }), /valid absolute VS Code document URI/);
+  assert.equal(saveCount, 0);
 });

@@ -1,0 +1,91 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  validateCreateComment,
+  validateNavigate,
+  validateReviewRelayState
+} from "../src/model";
+
+const validComment = {
+  id: "00000000-0000-4000-8000-000000000001",
+  uri: "file:///repo/src/app.ts",
+  range: {
+    start: { line: 3, character: 0 },
+    end: { line: 4, character: 0 }
+  },
+  body: "Check this",
+  author: "Human",
+  source: "human" as const,
+  createdAt: "2026-07-27T00:00:00.000Z"
+};
+
+test("accepts document URIs that can be used as absolute VS Code URIs", () => {
+  assert.equal(validateCreateComment({
+    uri: "file:///repo/%E6%97%A5%E6%9C%AC%E8%AA%9E.ts",
+    line: 0,
+    body: "Check this"
+  }).uri, "file:///repo/%E6%97%A5%E6%9C%AC%E8%AA%9E.ts");
+
+  const navigation = validateNavigate({
+    uri: "untitled:Untitled-1",
+    line: 0
+  });
+  assert.ok("uri" in navigation);
+  assert.equal(navigation.uri, "untitled:Untitled-1");
+});
+
+test("rejects malformed, relative, and ambiguous document URIs", () => {
+  for (const uri of [
+    "",
+    "not-a-uri",
+    "/repo/app.ts",
+    "file:///repo/bad path.ts",
+    "file:///repo/%ZZ.ts",
+    "file:\\repo\\app.ts"
+  ]) {
+    assert.throws(() => validateCreateComment({ uri, line: 0, body: "Check this" }), uri);
+  }
+});
+
+test("strictly rejects unknown input fields and invalid ranges", () => {
+  assert.throws(() => validateCreateComment({
+    uri: "file:///repo/app.ts",
+    line: 4,
+    endLine: 3,
+    body: "Check this"
+  }));
+  assert.throws(() => validateCreateComment({
+    uri: "file:///repo/app.ts",
+    line: 0,
+    body: "Check this",
+    unexpected: true
+  }));
+});
+
+test("validates the complete persisted state including thread invariants", () => {
+  const valid = {
+    comments: [validComment],
+    overall: "",
+    includeAiGenerated: true
+  };
+  assert.deepEqual(validateReviewRelayState(valid), valid);
+
+  assert.throws(() => validateReviewRelayState({
+    ...valid,
+    comments: [{ ...validComment, uri: "invalid" }]
+  }), /valid absolute VS Code document URI/);
+
+  assert.throws(() => validateReviewRelayState({
+    ...valid,
+    comments: [{
+      ...validComment,
+      id: "00000000-0000-4000-8000-000000000002",
+      parentId: "00000000-0000-4000-8000-000000000099"
+    }]
+  }), /Parent comment not found/);
+
+  assert.throws(() => validateReviewRelayState({
+    ...valid,
+    comments: [validComment, { ...validComment }]
+  }), /Duplicate comment id/);
+});
