@@ -41,6 +41,24 @@ test("comments round-trip through the loopback API", async () => {
     const list = await fetch(`${origin}/v1/comments`);
     assert.deepEqual(await list.json(), { overall: "Review the error handling.", comments: [created.comment] });
 
+    const replyResponse = await fetch(`${origin}/v1/comments/${created.comment.id}/replies`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: "Fixed in the caller too.", author: "Codex" })
+    });
+    assert.equal(replyResponse.status, 201);
+    const replied = await replyResponse.json() as { comment: ReviewComment };
+    assert.equal(replied.comment.parentId, created.comment.id);
+    assert.equal(replied.comment.uri, created.comment.uri);
+    assert.deepEqual(replied.comment.range, created.comment.range);
+
+    const missingReply = await fetch(`${origin}/v1/comments/missing/replies`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: "No parent" })
+    });
+    assert.equal(missingReply.status, 404);
+
     const navigate = await fetch(`${origin}/v1/navigate`, {
       method: "POST",
       headers: { "content-type": "application/json" },

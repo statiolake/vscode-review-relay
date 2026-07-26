@@ -52,9 +52,13 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
     }
 
     const comment = this.store.list().find(candidate => candidate.id === element.id);
-    const item = new vscode.TreeItem(comment ? firstLine(comment.body) : "(missing comment)", vscode.TreeItemCollapsibleState.None);
+    const replies = comment ? this.store.list().filter(candidate => candidate.parentId === comment.id) : [];
+    const item = new vscode.TreeItem(
+      comment ? firstLine(comment.body) : "(missing comment)",
+      replies.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None
+    );
     if (comment) {
-      item.description = comment.author;
+      item.description = comment.parentId ? `↳ ${comment.author}` : comment.author;
       item.tooltip = new vscode.MarkdownString(comment.body);
       item.iconPath = new vscode.ThemeIcon(comment.source === "agent" ? "sparkle" : "person");
       item.command = navigateCommand(comment.id);
@@ -77,7 +81,14 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
         .map(group => ({ kind: "location", key: group.key }));
     }
     if (element.kind === "location") {
-      return (locations.get(element.key)?.comments ?? []).map(comment => ({ kind: "comment", id: comment.id }));
+      return (locations.get(element.key)?.comments ?? [])
+        .filter(comment => !comment.parentId)
+        .map(comment => ({ kind: "comment", id: comment.id }));
+    }
+    if (element.kind === "comment") {
+      return this.store.list()
+        .filter(comment => comment.parentId === element.id)
+        .map(comment => ({ kind: "comment", id: comment.id }));
     }
     return [];
   }

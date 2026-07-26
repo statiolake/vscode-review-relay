@@ -54,6 +54,32 @@ func TestAddComment(t *testing.T) {
 	}
 }
 
+func TestReplyToComment(t *testing.T) {
+	var received map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/comments/comment-1/replies" || r.Method != http.MethodPost {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(`{"comment":{"id":"reply-1"}}`))
+	}))
+	defer server.Close()
+
+	var out bytes.Buffer
+	if err := run([]string{
+		"--endpoint", server.URL,
+		"comments", "reply", "comment-1",
+		"--body", "Handled", "--author", "Codex",
+	}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if received["body"] != "Handled" || received["author"] != "Codex" || received["source"] != "agent" {
+		t.Fatalf("unexpected payload: %#v", received)
+	}
+}
+
 func TestHelpExitsSuccessfully(t *testing.T) {
 	var out bytes.Buffer
 	if err := run([]string{"--help"}, &out); err != nil {

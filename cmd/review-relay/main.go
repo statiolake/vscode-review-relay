@@ -82,7 +82,7 @@ func run(args []string, out io.Writer) error {
 
 func runComments(c client, args []string) error {
 	if len(args) == 0 {
-		return errors.New("comments requires list, add, remove, or clear")
+		return errors.New("comments requires list, add, reply, remove, or clear")
 	}
 	switch args[0] {
 	case "list":
@@ -114,6 +114,22 @@ func runComments(c client, args []string) error {
 			payload["endLine"] = *endLine
 		}
 		return c.request(http.MethodPost, "/v1/comments", payload)
+	case "reply":
+		flags := flag.NewFlagSet("comments reply", flag.ContinueOnError)
+		body := flags.String("body", "", "reply body")
+		author := flags.String("author", "Agent", "reply author")
+		if len(args) < 2 {
+			return errors.New("comments reply requires a comment ID and --body")
+		}
+		commentID := args[1]
+		if err := flags.Parse(args[2:]); err != nil {
+			return err
+		}
+		if flags.NArg() != 0 || *body == "" {
+			return errors.New("comments reply requires a comment ID and --body")
+		}
+		payload := map[string]any{"body": *body, "author": *author, "source": "agent"}
+		return c.request(http.MethodPost, "/v1/comments/"+url.PathEscape(commentID)+"/replies", payload)
 	case "remove":
 		if len(args) != 2 {
 			return errors.New("comments remove requires a comment ID")
@@ -299,6 +315,7 @@ Commands:
   health
   comments list [--uri URI]
   comments add --uri URI --line N [--end-line N] --body TEXT [--author NAME]
+  comments reply COMMENT_ID --body TEXT [--author NAME]
   comments remove COMMENT_ID
   comments clear
   navigate --comment COMMENT_ID

@@ -40,9 +40,10 @@ Prefer the bundled CLI. It has no runtime dependencies. It discovers this VS Cod
 "${context.cliPath}" ${cliTarget} comments list
 "${context.cliPath}" ${cliTarget} navigate --comment COMMENT_ID
 "${context.cliPath}" ${cliTarget} comments add --uri file:///absolute/path/src/app.ts --line 12 --body 'Should this error be propagated?' --author Agent
+"${context.cliPath}" ${cliTarget} comments reply COMMENT_ID --body 'Yes. I updated the caller as well.' --author Agent
 \`\`\`
 
-Available commands are \`health\`, \`comments list\`, \`comments add\`, \`comments remove\`, \`comments clear\`, and \`navigate\`. Use \`--help\` for the complete syntax. The CLI prints the API JSON response to stdout and errors to stderr.
+Available commands are \`health\`, \`comments list\`, \`comments add\`, \`comments reply\`, \`comments remove\`, \`comments clear\`, and \`navigate\`. Use \`--help\` for the complete syntax. The CLI prints the API JSON response to stdout and errors to stderr.
 
 ## HTTP interface
 
@@ -56,6 +57,8 @@ All responses are JSON. The server only listens on 127.0.0.1.
   Filters comments by exact VS Code document URI.
 - POST /v1/comments
   Creates a comment. Send Content-Type: application/json.
+- POST /v1/comments/<id>/replies
+  Replies to an existing comment. Send { "body": "...", "author": "...", "source": "agent" }. The reply inherits its thread's file and range.
 - POST /v1/navigate
   Opens and reveals a location in VS Code. Send either { "commentId": "..." } or { "uri": "...", "line": 12, "endLine": 14 }. Do not combine target forms.
 - DELETE /v1/comments/<id>
@@ -78,7 +81,7 @@ Create request:
 
 \`uri\` must be a VS Code document URI, normally an absolute \`file:///...\` URI. \`line\` and optional \`endLine\` are zero-based and inclusive. \`body\` is required. \`author\`, \`source\`, and \`endLine\` are optional; \`source\` is either \`human\` or \`agent\`.
 
-Comment response fields include \`id\`, \`uri\`, \`range.start\`, \`range.end\`, \`body\`, \`author\`, \`source\`, and \`createdAt\`. Range lines and characters are zero-based. Delete responses include \`remainingComments\`; use it to notice when more review work remains.
+Comment response fields include \`id\`, optional \`parentId\`, \`uri\`, \`range.start\`, \`range.end\`, \`body\`, \`author\`, \`source\`, and \`createdAt\`. A \`parentId\` identifies a reply. Range lines and characters are zero-based. Delete responses include \`remainingComments\`; use it to notice when more review work remains. Deleting a comment also deletes its replies.
 
 ## Examples
 
@@ -91,6 +94,9 @@ curl -fsS -X POST ${context.endpoint}/v1/navigate \\
 curl -fsS -X POST ${context.endpoint}/v1/comments \\
   -H 'content-type: application/json' \\
   -d '{"uri":"file:///absolute/path/src/app.ts","line":12,"body":"Should this error be propagated?","author":"Agent","source":"agent"}'
+curl -fsS -X POST ${context.endpoint}/v1/comments/COMMENT_ID/replies \\
+  -H 'content-type: application/json' \\
+  -d '{"body":"Yes. I updated the caller as well.","author":"Agent","source":"agent"}'
 \`\`\`
 
 When reporting a comment in chat, include its file, zero-based API line or converted one-based editor line, and comment ID so it can be identified unambiguously.

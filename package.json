@@ -38,6 +38,7 @@
       { "command": "reviewRelay.cancelEditComment", "title": "Cancel", "icon": "$(close)" },
       { "command": "reviewRelay.deleteComment", "title": "Delete", "icon": "$(trash)" },
       { "command": "reviewRelay.submitComment", "title": "Add Comment" },
+      { "command": "reviewRelay.replyComment", "title": "Reply" },
       { "command": "reviewRelay.copyEndpoint", "title": "Review Relay: Copy API Endpoint" },
       { "command": "reviewRelay.copyAgentInstructions", "title": "Review Relay: Copy Agent Instructions" },
       { "command": "reviewRelay.copyMarkdown", "title": "Review Relay: Copy as Markdown", "icon": "$(clippy)" },
@@ -50,6 +51,7 @@
     "menus": {
       "commandPalette": [
         { "command": "reviewRelay.submitComment", "when": "false" },
+        { "command": "reviewRelay.replyComment", "when": "false" },
         { "command": "reviewRelay.editComment", "when": "false" },
         { "command": "reviewRelay.saveComment", "when": "false" },
         { "command": "reviewRelay.cancelEditComment", "when": "false" },
@@ -62,7 +64,8 @@
         { "command": "reviewRelay.addComment", "group": "navigation@50", "when": "editorTextFocus" }
       ],
       "comments/commentThread/context": [
-        { "command": "reviewRelay.submitComment", "group": "inline", "when": "commentController == review-relay && commentThreadIsEmpty" }
+        { "command": "reviewRelay.submitComment", "group": "inline", "when": "commentController == review-relay && commentThreadIsEmpty" },
+        { "command": "reviewRelay.replyComment", "group": "inline", "when": "commentController == review-relay && !commentThreadIsEmpty" }
       ],
       "comments/comment/title": [
         { "command": "reviewRelay.editComment", "group": "inline@1", "when": "commentController == review-relay && comment == preview" },

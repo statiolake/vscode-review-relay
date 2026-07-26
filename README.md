@@ -28,6 +28,10 @@ review-relay --workspace /absolute/path/to/project comments add \
   --uri file:///absolute/path/src/app.ts --line 12 \
   --body 'Should this error be propagated?' --author Codex
 
+# Reply in the same thread
+review-relay --workspace /absolute/path/to/project comments reply COMMENT_ID \
+  --body 'Yes—this now propagates the original error.' --author Codex
+
 # Open a comment in VS Code
 review-relay --workspace /absolute/path/to/project navigate --comment COMMENT_ID
 
@@ -44,6 +48,7 @@ Comments persist in VS Code workspace storage and updates from either side immed
 - `GET /health`
 - `GET /v1/comments[?uri=...]` returns `{ overall, comments }`
 - `POST /v1/comments` with `{ uri, line, endLine?, body, author?, source? }`
+- `POST /v1/comments/:id/replies` with `{ body, author?, source? }`
 - `POST /v1/navigate` with `{ commentId }` or `{ uri, line, endLine? }`
 - `DELETE /v1/comments/:id`
 - `DELETE /v1/comments`

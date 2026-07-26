@@ -16,6 +16,8 @@ test("agent instructions contain the live endpoint, workspace and complete inter
   assert.match(instructions, /GET \/v1\/comments/);
   assert.match(instructions, /"overall": string/);
   assert.match(instructions, /POST \/v1\/comments/);
+  assert.match(instructions, /POST \/v1\/comments\/<id>\/replies/);
+  assert.match(instructions, /comments reply COMMENT_ID/);
   assert.match(instructions, /POST \/v1\/navigate/);
   assert.match(instructions, /DELETE \/v1\/comments\/<id>/);
   assert.match(instructions, /zero-based and inclusive/);

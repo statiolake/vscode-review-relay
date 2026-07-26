@@ -1,7 +1,7 @@
 import { createServer, IncomingMessage, Server, ServerResponse } from "node:http";
 import { AddressInfo } from "node:net";
 import { CommentStore } from "./store";
-import { validateCreateComment, validateNavigate } from "./model";
+import { validateCreateComment, validateCreateReply, validateNavigate } from "./model";
 import { NavigationService } from "./navigation";
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -41,6 +41,17 @@ export class CommentServer {
         if (!request.headers["content-type"]?.startsWith("application/json")) return this.json(response, 415, { error: "Content-Type must be application/json." });
         const comment = await this.store.add(validateCreateComment(await this.readJson(request)));
         return this.json(response, 201, { comment });
+      }
+      const replyMatch = /^\/v1\/comments\/([^/]+)\/replies$/.exec(url.pathname);
+      if (request.method === "POST" && replyMatch) {
+        if (!request.headers["content-type"]?.startsWith("application/json")) return this.json(response, 415, { error: "Content-Type must be application/json." });
+        const comment = await this.store.reply(
+          decodeURIComponent(replyMatch[1]),
+          validateCreateReply(await this.readJson(request))
+        );
+        return comment
+          ? this.json(response, 201, { comment })
+          : this.json(response, 404, { error: "Parent comment not found." });
       }
       if (request.method === "POST" && url.pathname === "/v1/navigate") {
         if (!request.headers["content-type"]?.startsWith("application/json")) return this.json(response, 415, { error: "Content-Type must be application/json." });

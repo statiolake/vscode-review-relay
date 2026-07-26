@@ -39,10 +39,7 @@ export class VsCodeComments implements vscode.Disposable {
     const text = reply.text.trim();
     if (!text || !thread.range) return;
     if (thread.reviewRelayId) {
-      await this.store.add({
-        uri: thread.uri.toString(), line: thread.range.start.line, endLine: thread.range.end.line,
-        body: text, author: "Human", source: "human"
-      });
+      await this.store.reply(thread.reviewRelayId, { body: text, author: "Human", source: "human" });
     } else {
       await this.store.add({
         uri: thread.uri.toString(), line: thread.range.start.line, endLine: thread.range.end.line,
@@ -53,7 +50,8 @@ export class VsCodeComments implements vscode.Disposable {
   }
 
   edit(comment: CommentWithId): void {
-    const thread = this.threads.get(comment.reviewRelayId);
+    const rootId = this.store.rootId(comment.reviewRelayId);
+    const thread = rootId ? this.threads.get(rootId) : undefined;
     if (!thread) return;
     comment.savedBody = typeof comment.body === "string" ? comment.body : comment.body.value;
     comment.mode = vscode.CommentMode.Editing;
@@ -71,7 +69,8 @@ export class VsCodeComments implements vscode.Disposable {
   }
 
   cancelEdit(comment: CommentWithId): void {
-    const thread = this.threads.get(comment.reviewRelayId);
+    const rootId = this.store.rootId(comment.reviewRelayId);
+    const thread = rootId ? this.threads.get(rootId) : undefined;
     if (!thread) return;
     const markdown = new vscode.MarkdownString(comment.savedBody);
     markdown.isTrusted = false;
@@ -87,38 +86,42 @@ export class VsCodeComments implements vscode.Disposable {
 
   private render(): void {
     const remaining = new Set(this.threads.keys());
-    for (const comment of this.store.list()) {
-      remaining.delete(comment.id);
-      const markdown = new vscode.MarkdownString(comment.body);
-      markdown.isTrusted = false;
-      const rendered: CommentWithId = {
-        body: markdown,
-        author: { name: comment.author },
-        mode: vscode.CommentMode.Preview,
-        contextValue: "preview",
-        reviewRelayId: comment.id,
-        savedBody: comment.body
-      };
+    for (const root of this.store.list().filter(comment => !comment.parentId)) {
+      remaining.delete(root.id);
+      const rendered = this.store.thread(root.id).map(comment => this.renderComment(comment));
       const range = new vscode.Range(
-        comment.range.start.line, comment.range.start.character,
-        comment.range.end.line, comment.range.end.character
+        root.range.start.line, root.range.start.character,
+        root.range.end.line, root.range.end.character
       );
-      const existing = this.threads.get(comment.id) as ThreadWithId | undefined;
+      const existing = this.threads.get(root.id) as ThreadWithId | undefined;
       if (existing) {
-        existing.comments = [rendered];
+        existing.comments = rendered;
         existing.range = range;
       } else {
-        const thread = this.controller.createCommentThread(vscode.Uri.parse(comment.uri), range, [rendered]) as ThreadWithId;
-        thread.reviewRelayId = comment.id;
+        const thread = this.controller.createCommentThread(vscode.Uri.parse(root.uri), range, rendered) as ThreadWithId;
+        thread.reviewRelayId = root.id;
         thread.contextValue = "review-relay";
-        thread.canReply = false;
-        this.threads.set(comment.id, thread);
+        thread.canReply = true;
+        this.threads.set(root.id, thread);
       }
     }
     for (const id of remaining) {
       this.threads.get(id)?.dispose();
       this.threads.delete(id);
     }
+  }
+
+  private renderComment(comment: ReturnType<CommentStore["list"]>[number]): CommentWithId {
+    const markdown = new vscode.MarkdownString(comment.body);
+    markdown.isTrusted = false;
+    return {
+      body: markdown,
+      author: { name: comment.author },
+      mode: vscode.CommentMode.Preview,
+      contextValue: "preview",
+      reviewRelayId: comment.id,
+      savedBody: comment.body
+    };
   }
 
   dispose(): void {

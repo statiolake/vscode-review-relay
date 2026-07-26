@@ -24,8 +24,11 @@ export async function renderReviewMarkdown(store: CommentStore): Promise<string>
     const snippet = await readSnippet(group);
     if (snippet !== undefined) parts.push(`\`\`\`${languageHint(group.uri)}`, snippet, "```", "");
     for (const comment of group.comments) {
-      const author = comment.source === "agent" ? `**${comment.author} (AI):** ` : "";
-      parts.push(`${author}${comment.body.trim()}`, "");
+      const author = comment.source === "agent"
+        ? `**${comment.author} (AI):** `
+        : comment.parentId ? `**${comment.author}:** ` : "";
+      const prefix = comment.parentId ? "↳ " : "";
+      parts.push(`${prefix}${author}${comment.body.trim()}`, "");
     }
   }
 

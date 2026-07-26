@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { CreateCommentInput, ReviewComment } from "./model";
+import { CreateCommentInput, CreateReplyInput, ReviewComment } from "./model";
 
 export interface CommentPersistence {
   load(): ReviewRelayState;
@@ -47,12 +47,58 @@ export class CommentStore {
     return comment;
   }
 
+  async reply(parentId: string, input: CreateReplyInput): Promise<ReviewComment | undefined> {
+    const parent = this.state.comments.find(comment => comment.id === parentId);
+    if (!parent) return undefined;
+    const comment: ReviewComment = {
+      id: randomUUID(),
+      parentId,
+      uri: parent.uri,
+      range: parent.range,
+      body: input.body.trim(),
+      author: input.author?.trim() || (input.source === "human" ? "Human" : "AI"),
+      source: input.source ?? "agent",
+      createdAt: new Date().toISOString()
+    };
+    this.state = { ...this.state, comments: [...this.state.comments, comment] };
+    await this.commit();
+    return comment;
+  }
+
+  rootId(id: string): string | undefined {
+    let current = this.state.comments.find(comment => comment.id === id);
+    if (!current) return undefined;
+    const visited = new Set<string>();
+    while (current.parentId) {
+      if (visited.has(current.id)) return current.id;
+      visited.add(current.id);
+      const parent = this.state.comments.find(comment => comment.id === current!.parentId);
+      if (!parent) break;
+      current = parent;
+    }
+    return current.id;
+  }
+
+  thread(rootId: string): readonly ReviewComment[] {
+    return this.state.comments.filter(comment => this.rootId(comment.id) === rootId);
+  }
+
   async remove(id: string): Promise<RemoveCommentsResult> {
     return this.removeMany([id]);
   }
 
   async removeMany(ids: readonly string[]): Promise<RemoveCommentsResult> {
     const removedIds = new Set(ids);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const comment of this.state.comments) {
+        if (comment.parentId && removedIds.has(comment.parentId) && !removedIds.has(comment.id)) {
+          removedIds.add(comment.id);
+          changed = true;
+        }
+      }
+    }
     const next = this.state.comments.filter(comment => !removedIds.has(comment.id));
     const removed = this.state.comments.length - next.length;
     if (removed === 0) return { removed: 0, remainingComments: this.state.comments.length };

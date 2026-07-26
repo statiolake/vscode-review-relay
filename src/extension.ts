@@ -86,6 +86,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerTreeDataProvider(CommentsTreeProvider.viewType, commentsTree),
     vscode.commands.registerCommand("reviewRelay.addComment", () => comments.addAtSelection()),
     vscode.commands.registerCommand("reviewRelay.submitComment", (reply: vscode.CommentReply) => comments.submit(reply)),
+    vscode.commands.registerCommand("reviewRelay.replyComment", (reply: vscode.CommentReply) => comments.submit(reply)),
     vscode.commands.registerCommand("reviewRelay.editComment", comment => comments.edit(comment)),
     vscode.commands.registerCommand("reviewRelay.saveComment", comment => comments.save(comment)),
     vscode.commands.registerCommand("reviewRelay.cancelEditComment", comment => comments.cancelEdit(comment)),

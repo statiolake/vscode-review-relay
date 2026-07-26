@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add threaded replies across VS Code, the Review Relay tree, HTTP API, and bundled CLI.
+
 ## 0.1.3
 
 - Add a dedicated Review Relay comment tree grouped by file and source location.
