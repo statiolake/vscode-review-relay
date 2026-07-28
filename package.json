@@ -2,7 +2,7 @@
   "name": "vscode-review-relay",
   "displayName": "Review Relay",
   "description": "Live review comments shared between VS Code and local AI tools.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "statiolake",
   "license": "MIT",
   "author": "statiolake",

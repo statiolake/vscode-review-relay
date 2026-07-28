@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+- Preserve comment drafts, Vim modes, and IME composition across unrelated live review updates.
+- Keep overall-comment persistence from stealing focus or saving incomplete IME composition.
+
 ## 0.1.4
 
 - Add threaded replies across VS Code, the Review Relay tree, HTTP API, and bundled CLI.
