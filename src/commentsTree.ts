@@ -22,7 +22,9 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
   private readonly subscription: vscode.Disposable;
 
   constructor(private readonly store: CommentStore) {
-    this.subscription = store.onDidChange(() => this.changed.fire(undefined));
+    this.subscription = store.onDidChange(change => {
+      if (change.comments) this.changed.fire(undefined);
+    });
   }
 
   getTreeItem(element: CommentsTreeElement): vscode.TreeItem {

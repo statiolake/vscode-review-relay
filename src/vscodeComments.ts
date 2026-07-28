@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { ReviewComment } from "./model";
 import { CommentStore } from "./store";
 
 type ThreadWithId = vscode.CommentThread & { reviewRelayId?: string };
@@ -7,6 +8,7 @@ type CommentWithId = vscode.Comment & { reviewRelayId: string; savedBody: string
 export class VsCodeComments implements vscode.Disposable {
   private readonly controller = vscode.comments.createCommentController("review-relay", "Review Relay");
   private readonly threads = new Map<string, vscode.CommentThread>();
+  private readonly threadModels = new Map<string, readonly ReviewComment[]>();
   private readonly subscriptions: vscode.Disposable[] = [];
 
   constructor(private readonly store: CommentStore) {
@@ -15,7 +17,9 @@ export class VsCodeComments implements vscode.Disposable {
         new vscode.Range(0, 0, document.lineCount - 1, document.lineAt(document.lineCount - 1).text.length)
       ]
     };
-    this.subscriptions.push(store.onDidChange(() => this.render()));
+    this.subscriptions.push(store.onDidChange(change => {
+      if (change.comments) this.render();
+    }));
     this.render();
   }
 
@@ -65,7 +69,9 @@ export class VsCodeComments implements vscode.Disposable {
       void vscode.window.showWarningMessage("A comment cannot be empty.");
       return;
     }
-    await this.store.update(comment.reviewRelayId, body);
+    if (await this.store.update(comment.reviewRelayId, body)) {
+      this.finishEditing(comment, body);
+    }
   }
 
   cancelEdit(comment: CommentWithId): void {
@@ -78,6 +84,7 @@ export class VsCodeComments implements vscode.Disposable {
     comment.mode = vscode.CommentMode.Preview;
     comment.contextValue = "preview";
     thread.comments = [...thread.comments];
+    this.render();
   }
 
   async remove(comment: CommentWithId): Promise<void> {
@@ -88,26 +95,36 @@ export class VsCodeComments implements vscode.Disposable {
     const remaining = new Set(this.threads.keys());
     for (const root of this.store.list().filter(comment => !comment.parentId)) {
       remaining.delete(root.id);
-      const rendered = this.store.thread(root.id).map(comment => this.renderComment(comment));
+      const comments = this.store.thread(root.id);
       const range = new vscode.Range(
         root.range.start.line, root.range.start.character,
         root.range.end.line, root.range.end.character
       );
       const existing = this.threads.get(root.id) as ThreadWithId | undefined;
       if (existing) {
-        existing.comments = rendered;
-        existing.range = range;
+        if (!sameComments(this.threadModels.get(root.id), comments)) {
+          if (existing.comments.some(comment => comment.mode === vscode.CommentMode.Editing)) continue;
+          existing.comments = comments.map(comment => this.renderComment(comment));
+          existing.range = range;
+          this.threadModels.set(root.id, comments);
+        }
       } else {
-        const thread = this.controller.createCommentThread(vscode.Uri.parse(root.uri), range, rendered) as ThreadWithId;
+        const thread = this.controller.createCommentThread(
+          vscode.Uri.parse(root.uri),
+          range,
+          comments.map(comment => this.renderComment(comment))
+        ) as ThreadWithId;
         thread.reviewRelayId = root.id;
         thread.contextValue = "review-relay";
         thread.canReply = true;
         this.threads.set(root.id, thread);
+        this.threadModels.set(root.id, comments);
       }
     }
     for (const id of remaining) {
       this.threads.get(id)?.dispose();
       this.threads.delete(id);
+      this.threadModels.delete(id);
     }
   }
 
@@ -124,9 +141,30 @@ export class VsCodeComments implements vscode.Disposable {
     };
   }
 
+  private finishEditing(comment: CommentWithId, body: string): void {
+    const rootId = this.store.rootId(comment.reviewRelayId);
+    const thread = rootId ? this.threads.get(rootId) : undefined;
+    if (!thread) return;
+    const markdown = new vscode.MarkdownString(body.trim());
+    markdown.isTrusted = false;
+    comment.body = markdown;
+    comment.savedBody = body.trim();
+    comment.mode = vscode.CommentMode.Preview;
+    comment.contextValue = "preview";
+    thread.comments = [...thread.comments];
+    this.render();
+  }
+
   dispose(): void {
     this.subscriptions.forEach(subscription => subscription.dispose());
     this.threads.forEach(thread => thread.dispose());
     this.controller.dispose();
   }
+}
+
+function sameComments(
+  previous: readonly ReviewComment[] | undefined,
+  current: readonly ReviewComment[]
+): boolean {
+  return previous?.length === current.length && current.every((comment, index) => comment === previous[index]);
 }

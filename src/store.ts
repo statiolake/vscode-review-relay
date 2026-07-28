@@ -23,9 +23,15 @@ export interface RemoveCommentsResult {
   remainingComments: number;
 }
 
+export interface CommentStoreChange {
+  comments?: true;
+  overall?: true;
+  includeAiGenerated?: true;
+}
+
 export class CommentStore {
   private state: ReviewRelayState;
-  private readonly listeners = new Set<() => void>();
+  private readonly listeners = new Set<(change: CommentStoreChange) => void>();
 
   constructor(private readonly persistence: CommentPersistence) {
     this.state = validateReviewRelayState(persistence.load());
@@ -50,7 +56,7 @@ export class CommentStore {
       createdAt: new Date().toISOString()
     };
     this.state = { ...this.state, comments: [...this.state.comments, comment] };
-    await this.commit();
+    await this.commit({ comments: true });
     return comment;
   }
 
@@ -70,7 +76,7 @@ export class CommentStore {
       createdAt: new Date().toISOString()
     };
     this.state = { ...this.state, comments: [...this.state.comments, comment] };
-    await this.commit();
+    await this.commit({ comments: true });
     return comment;
   }
 
@@ -112,7 +118,7 @@ export class CommentStore {
     const removed = this.state.comments.length - next.length;
     if (removed === 0) return { removed: 0, remainingComments: this.state.comments.length };
     this.state = { ...this.state, comments: next };
-    await this.commit();
+    await this.commit({ comments: true });
     return { removed, remainingComments: next.length };
   }
 
@@ -127,7 +133,7 @@ export class CommentStore {
         commentIndex === index ? { ...comment, body: trimmed } : comment
       )
     };
-    await this.commit();
+    await this.commit({ comments: true });
     return true;
   }
 
@@ -135,7 +141,7 @@ export class CommentStore {
     const removed = this.state.comments.length;
     if (removed === 0) return { removed: 0, remainingComments: 0 };
     this.state = { ...this.state, comments: [] };
-    await this.commit();
+    await this.commit({ comments: true });
     return { removed, remainingComments: 0 };
   }
 
@@ -143,30 +149,35 @@ export class CommentStore {
     overall = validateOverall(overall);
     if (overall === this.state.overall) return;
     this.state = { ...this.state, overall };
-    await this.commit();
+    await this.commit({ overall: true });
   }
 
   async setIncludeAiGenerated(includeAiGenerated: boolean): Promise<void> {
     includeAiGenerated = validateIncludeAiGenerated(includeAiGenerated);
     if (includeAiGenerated === this.state.includeAiGenerated) return;
     this.state = { ...this.state, includeAiGenerated };
-    await this.commit();
+    await this.commit({ includeAiGenerated: true });
   }
 
   async clearReview(): Promise<void> {
     if (this.state.comments.length === 0 && this.state.overall.length === 0) return;
+    const hadComments = this.state.comments.length > 0;
+    const hadOverall = this.state.overall.length > 0;
     this.state = { ...this.state, comments: [], overall: "" };
-    await this.commit();
+    await this.commit({
+      ...(hadComments ? { comments: true } : {}),
+      ...(hadOverall ? { overall: true } : {})
+    });
   }
 
-  onDidChange(listener: () => void): { dispose(): void } {
+  onDidChange(listener: (change: CommentStoreChange) => void): { dispose(): void } {
     this.listeners.add(listener);
     return { dispose: () => this.listeners.delete(listener) };
   }
 
-  private async commit(): Promise<void> {
+  private async commit(change: CommentStoreChange): Promise<void> {
     this.state = validateReviewRelayState(this.state);
     await this.persistence.save(this.state);
-    this.listeners.forEach(listener => listener());
+    this.listeners.forEach(listener => listener(change));
   }
 }

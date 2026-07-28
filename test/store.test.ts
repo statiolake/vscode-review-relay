@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ReviewComment } from "../src/model";
-import { CommentStore } from "../src/store";
+import { CommentStore, CommentStoreChange } from "../src/store";
 
 const ids = {
   one: "00000000-0000-4000-8000-000000000001",
@@ -110,6 +110,49 @@ test("persists overall review text and the AI export preference in the shared st
     overall: "Check the error-handling strategy.",
     includeAiGenerated: false
   });
+});
+
+test("reports which part of the state changed", async () => {
+  const store = new CommentStore({
+    load: () => ({ comments: [], overall: "", includeAiGenerated: true }),
+    save: async () => undefined
+  });
+  const changes: CommentStoreChange[] = [];
+  store.onDidChange(change => changes.push(change));
+
+  const added = await store.add({
+    uri: "file:///repo/app.ts",
+    line: 2,
+    body: "Comment",
+    source: "agent"
+  });
+  await store.setOverall("Overall");
+  await store.setIncludeAiGenerated(false);
+  await store.remove(added.id);
+
+  assert.deepEqual(changes, [
+    { comments: true },
+    { overall: true },
+    { includeAiGenerated: true },
+    { comments: true }
+  ]);
+});
+
+test("clear review reports every state domain it actually clears", async () => {
+  const store = new CommentStore({
+    load: () => ({
+      comments: [comment(ids.one)],
+      overall: "Overall",
+      includeAiGenerated: true
+    }),
+    save: async () => undefined
+  });
+  const changes: CommentStoreChange[] = [];
+  store.onDidChange(change => changes.push(change));
+
+  await store.clearReview();
+
+  assert.deepEqual(changes, [{ comments: true, overall: true }]);
 });
 
 test("fails fast without saving when persisted state is corrupted", () => {
