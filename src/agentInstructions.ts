@@ -1,15 +1,21 @@
+export interface AgentWorkspaceFolder {
+  uri: string;
+  localPath?: string;
+}
+
 export interface AgentInstructionsContext {
   endpoint: string;
   cliPath: string;
-  workspaceFolders: readonly { uri: string; path: string }[];
+  workspaceFolders: readonly AgentWorkspaceFolder[];
 }
 
 export function createAgentInstructions(context: AgentInstructionsContext): string {
   const workspaces = context.workspaceFolders.length > 0
     ? context.workspaceFolders.map(folder => `- ${folder.uri}`).join("\n")
     : "- No workspace folder is currently open. Use an absolute file URI from the editor.";
-  const cliTarget = context.workspaceFolders.length > 0
-    ? `--workspace "${context.workspaceFolders[0].path}"`
+  const localWorkspace = context.workspaceFolders.find(folder => folder.localPath);
+  const cliTarget = localWorkspace
+    ? `--workspace "${localWorkspace.localPath}"`
     : `--endpoint ${context.endpoint}`;
 
   return `# Review Relay live review comments
@@ -33,13 +39,13 @@ ${workspaces}
 
 ## CLI
 
-Prefer the bundled CLI. It has no runtime dependencies. It discovers this VS Code session from the workspace path; \`--endpoint\` remains available for environments that cannot access the same filesystem.
+Prefer the bundled CLI. It has no runtime dependencies. Local workspaces discover this VS Code session from the workspace path. Remote workspaces such as Dev Containers use the explicit local \`--endpoint\` because their workspace paths do not exist on the UI host.
 
 \`\`\`sh
 "${context.cliPath}" ${cliTarget} health
 "${context.cliPath}" ${cliTarget} comments list
 "${context.cliPath}" ${cliTarget} navigate --comment COMMENT_ID
-"${context.cliPath}" ${cliTarget} comments add --uri file:///absolute/path/src/app.ts --line 12 --body 'Should this error be propagated?' --author Agent
+"${context.cliPath}" ${cliTarget} comments add --uri DOCUMENT_URI --line 12 --body 'Should this error be propagated?' --author Agent
 "${context.cliPath}" ${cliTarget} comments reply COMMENT_ID --body 'Yes. I updated the caller as well.' --author Agent
 \`\`\`
 
@@ -79,7 +85,7 @@ Create request:
 }
 \`\`\`
 
-\`uri\` must be a VS Code document URI, normally an absolute \`file:///...\` URI. \`line\` and optional \`endLine\` are zero-based and inclusive. \`body\` is required. \`author\`, \`source\`, and \`endLine\` are optional; \`source\` is either \`human\` or \`agent\`.
+\`uri\` must be the exact VS Code document URI, such as an absolute \`file:///...\` URI locally or a \`vscode-remote://...\` URI in a remote workspace. Reuse URIs returned by the API when possible. \`line\` and optional \`endLine\` are zero-based and inclusive. \`body\` is required. \`author\`, \`source\`, and \`endLine\` are optional; \`source\` is either \`human\` or \`agent\`.
 
 Comment response fields include \`id\`, optional \`parentId\`, \`uri\`, \`range.start\`, \`range.end\`, \`body\`, \`author\`, \`source\`, and \`createdAt\`. A \`parentId\` identifies a reply. Range lines and characters are zero-based. Delete responses include \`remainingComments\`; use it to notice when more review work remains. Deleting a comment also deletes its replies.
 
@@ -93,7 +99,7 @@ curl -fsS -X POST ${context.endpoint}/v1/navigate \\
   -d '{"commentId":"COMMENT_ID"}'
 curl -fsS -X POST ${context.endpoint}/v1/comments \\
   -H 'content-type: application/json' \\
-  -d '{"uri":"file:///absolute/path/src/app.ts","line":12,"body":"Should this error be propagated?","author":"Agent","source":"agent"}'
+  -d '{"uri":"DOCUMENT_URI","line":12,"body":"Should this error be propagated?","author":"Agent","source":"agent"}'
 curl -fsS -X POST ${context.endpoint}/v1/comments/COMMENT_ID/replies \\
   -H 'content-type: application/json' \\
   -d '{"body":"Yes. I updated the caller as well.","author":"Agent","source":"agent"}'

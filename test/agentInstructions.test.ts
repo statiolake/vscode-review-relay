@@ -6,7 +6,7 @@ test("agent instructions contain the live endpoint, workspace and complete inter
   const instructions = createAgentInstructions({
     endpoint: "http://127.0.0.1:49123",
     cliPath: "/extension/bin/darwin-arm64/review-relay",
-    workspaceFolders: [{ uri: "file:///repo", path: "/repo" }]
+    workspaceFolders: [{ uri: "file:///repo", localPath: "/repo" }]
   });
 
   assert.match(instructions, /http:\/\/127\.0\.0\.1:49123/);
@@ -24,4 +24,18 @@ test("agent instructions contain the live endpoint, workspace and complete inter
   assert.match(instructions, /Do not delete comments unless the user explicitly asks/);
   assert.match(instructions, /remainingComments/);
   assert.match(instructions, /Copy Agent Instructions.*again/);
+});
+
+test("remote workspaces connect through the UI host endpoint", () => {
+  const instructions = createAgentInstructions({
+    endpoint: "http://127.0.0.1:49123",
+    cliPath: "/extension/bin/darwin-arm64/review-relay",
+    workspaceFolders: [{
+      uri: "vscode-remote://dev-container%2Brepro/workspaces/repro"
+    }]
+  });
+
+  assert.match(instructions, /--endpoint http:\/\/127\.0\.0\.1:49123 comments list/);
+  assert.doesNotMatch(instructions, /--workspace/);
+  assert.match(instructions, /vscode-remote:\/\/dev-container/);
 });

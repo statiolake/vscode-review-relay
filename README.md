@@ -17,7 +17,7 @@ Comments are also shown inline through VS Code's native Comments UI. You can rep
 
 Run **Review Relay: Copy Agent Instructions** and paste the result into your agent chat. The instructions contain the current workspace, connection details, complete interface, and ready-to-run commands.
 
-Review Relay includes a dependency-free CLI for macOS, Linux, and Windows. Each VS Code window uses an available random port, and the CLI discovers the correct session from the workspace path. Multiple projects can therefore run concurrently.
+Review Relay includes a dependency-free CLI for macOS, Linux, and Windows. The extension and its loopback server run on the local UI host, including when VS Code is connected to a Dev Container, SSH host, or WSL workspace. Local workspaces are discovered from their path; copied agent instructions use the explicit local endpoint for remote workspaces.
 
 Agents can:
 

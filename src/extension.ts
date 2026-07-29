@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { CommentServer } from "./server";
 import { CommentStore } from "./store";
 import { VsCodeComments } from "./vscodeComments";
-import { createAgentInstructions } from "./agentInstructions";
+import { AgentWorkspaceFolder, createAgentInstructions } from "./agentInstructions";
 import { VsCodeNavigationService } from "./navigation";
 import { renderReviewMarkdown } from "./markdown";
 import { ReviewViewProvider } from "./reviewView";
@@ -33,8 +33,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const endpoint = `http://127.0.0.1:${port}`;
   const session = new SessionRegistration(endpoint);
-  const workspacePaths = () => (vscode.workspace.workspaceFolders ?? [])
-    .map(folder => folder.uri.fsPath);
+  const workspaceFolders = (): AgentWorkspaceFolder[] => (vscode.workspace.workspaceFolders ?? [])
+    .map(folder => ({
+      uri: folder.uri.toString(),
+      ...(folder.uri.scheme === "file" ? { localPath: folder.uri.fsPath } : {})
+    }));
+  const workspacePaths = () => workspaceFolders()
+    .flatMap(folder => folder.localPath ? [folder.localPath] : []);
   try {
     await session.update(workspacePaths());
   } catch (error) {
@@ -53,10 +58,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const instructions = createAgentInstructions({
       endpoint,
       cliPath,
-      workspaceFolders: (vscode.workspace.workspaceFolders ?? []).map(folder => ({
-        uri: folder.uri.toString(),
-        path: folder.uri.fsPath
-      }))
+      workspaceFolders: workspaceFolders()
     });
     await vscode.env.clipboard.writeText(instructions);
     void vscode.window.showInformationMessage("Copied Review Relay agent instructions.");
