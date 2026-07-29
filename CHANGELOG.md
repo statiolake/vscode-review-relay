@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.6
 
 - Run the loopback server in the local UI extension host so host-side agents can connect while VS Code uses a remote workspace.
 - Use explicit endpoint instructions when remote workspace paths are unavailable on the UI host.
