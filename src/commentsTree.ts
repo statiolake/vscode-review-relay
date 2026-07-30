@@ -53,6 +53,7 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
       tooltip.isTrusted = false;
       item.tooltip = tooltip;
       item.iconPath = new vscode.ThemeIcon(agentLast ? "comment-unresolved" : "comment");
+      item.command = navigateCommand(comment.id);
       item.contextValue = "reviewRelayComment";
       return item;
     }

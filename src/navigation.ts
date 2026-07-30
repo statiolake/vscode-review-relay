@@ -11,10 +11,11 @@ export class VsCodeNavigationService implements NavigationService {
     if (target.line >= document.lineCount || target.endLine >= document.lineCount) {
       throw new Error(`Navigation range is outside the document (${document.lineCount} lines).`);
     }
-    const editor = await vscode.window.showTextDocument(document, { preview: false });
     const range = new vscode.Range(target.line, 0, target.endLine, document.lineAt(target.endLine).text.length);
-    editor.selection = new vscode.Selection(range.start, range.end);
-    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+    await vscode.commands.executeCommand("vscode.open", document.uri, {
+      preview: false,
+      selection: range
+    });
     if (origin === "external") {
       const location = `${vscode.workspace.asRelativePath(document.uri, false)}:${target.line + 1}`;
       const subject = target.commentId ? `comment ${target.commentId}` : location;

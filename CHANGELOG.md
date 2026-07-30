@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Open a comment from its thread label while reserving the disclosure arrow for the flat conversation.
+- Open and select comment locations atomically before expanding their native thread.
+
 ## 0.1.7
 
 - Expand the native comment thread when selecting a comment in the Review Relay tree.

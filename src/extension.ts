@@ -99,13 +99,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand("reviewRelay.navigateTreeComment", async (id: string) => {
       const comment = store.list().find(candidate => candidate.id === id);
       if (!comment) return;
-      comments.expandThread(comment.id);
       await navigation.navigate({
         uri: comment.uri,
         line: comment.range.start.line,
         endLine: comment.range.end.line,
         commentId: comment.id
       }, "user");
+      comments.expandThread(comment.id);
     }),
     vscode.commands.registerCommand("reviewRelay.deleteTreeComment", async (element: CommentsTreeElement) => {
       if (!element || element.kind === "file") return;
