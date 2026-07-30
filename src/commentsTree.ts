@@ -13,13 +13,13 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
 
   constructor(private readonly store: CommentStore) {
     this.subscription = store.onDidChange(change => {
-      if (change.comments) this.changed.fire(undefined);
+      if (change.comments || change.showAgentLastOnly) this.changed.fire(undefined);
     });
   }
 
   getTreeItem(element: CommentsTreeElement): vscode.TreeItem {
     if (element.kind === "file") {
-      const threads = this.store.list().filter(comment => !comment.parentId && comment.uri === element.uri);
+      const threads = this.store.visibleThreadRoots().filter(comment => comment.uri === element.uri);
       const item = new vscode.TreeItem(documentLabel(element.uri), vscode.TreeItemCollapsibleState.Expanded);
       item.resourceUri = safeUri(element.uri);
       item.iconPath = new vscode.ThemeIcon("file");
@@ -30,6 +30,7 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
 
     const comment = this.store.list().find(candidate => candidate.id === element.id);
     const replies = comment ? this.store.thread(comment.id).length - 1 : 0;
+    const agentLast = comment ? this.store.lastComment(comment.id)?.source === "agent" : false;
     const lines = comment
       ? comment.range.start.line === comment.range.end.line
         ? `L${comment.range.start.line + 1}`
@@ -38,11 +39,15 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
     const preview = firstLine(comment?.body ?? "");
     const item = new vscode.TreeItem(comment ? `${lines} — ${preview}` : "(missing comment)");
     if (comment) {
-      item.description = replies === 0
+      const conversation = replies === 0
         ? comment.author
         : `${comment.author} · ${replies} ${replies === 1 ? "reply" : "replies"}`;
-      item.tooltip = new vscode.MarkdownString(comment.body);
-      item.iconPath = new vscode.ThemeIcon(comment.source === "agent" ? "sparkle" : "person");
+      const status = agentLast ? "Last response: AI" : "Waiting for AI";
+      item.description = `${conversation} · ${status}`;
+      const tooltip = new vscode.MarkdownString(`**${status}**\n\n${comment.body}`);
+      tooltip.isTrusted = false;
+      item.tooltip = tooltip;
+      item.iconPath = new vscode.ThemeIcon(agentLast ? "comment-unresolved" : "comment");
       item.command = navigateCommand(comment.id);
     }
     item.contextValue = "reviewRelayComment";
@@ -51,13 +56,12 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
 
   getChildren(element?: CommentsTreeElement): CommentsTreeElement[] {
     if (!element) {
-      return [...new Set(this.store.list().filter(comment => !comment.parentId).map(comment => comment.uri))]
+      return [...new Set(this.store.visibleThreadRoots().map(comment => comment.uri))]
         .sort((left, right) => documentLabel(left).localeCompare(documentLabel(right)))
         .map(uri => ({ kind: "file", uri }));
     }
     if (element.kind === "file") {
-      return this.store.list()
-        .filter(comment => !comment.parentId)
+      return this.store.visibleThreadRoots()
         .filter(comment => comment.uri === element.uri)
         .sort((left, right) =>
           left.range.start.line - right.range.start.line

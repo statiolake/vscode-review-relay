@@ -15,7 +15,8 @@ test("uses an empty state when this workspace has no saved Review Relay data", (
   assert.deepEqual(createWorkspacePersistence(storage).load(), {
     comments: [],
     overall: "",
-    includeAiGenerated: true
+    includeAiGenerated: true,
+    showAgentLastOnly: false
   });
 });
 

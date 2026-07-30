@@ -10,7 +10,8 @@ import {
   validateCreateReply,
   validateIncludeAiGenerated,
   validateOverall,
-  validateReviewRelayState
+  validateReviewRelayState,
+  validateShowAgentLastOnly
 } from "./model";
 
 export interface CommentPersistence {
@@ -27,6 +28,7 @@ export interface CommentStoreChange {
   comments?: true;
   overall?: true;
   includeAiGenerated?: true;
+  showAgentLastOnly?: true;
 }
 
 export class CommentStore {
@@ -40,6 +42,18 @@ export class CommentStore {
   list(): readonly ReviewComment[] { return this.state.comments; }
   getOverall(): string { return this.state.overall; }
   includesAiGenerated(): boolean { return this.state.includeAiGenerated; }
+  showsAgentLastOnly(): boolean { return this.state.showAgentLastOnly; }
+
+  threadRoots(): readonly ReviewComment[] {
+    return this.state.comments.filter(comment => !comment.parentId);
+  }
+
+  visibleThreadRoots(): readonly ReviewComment[] {
+    const roots = this.threadRoots();
+    return this.state.showAgentLastOnly
+      ? roots.filter(root => this.lastComment(root.id)?.source === "agent")
+      : roots;
+  }
 
   async add(input: CreateCommentInput): Promise<ReviewComment> {
     input = validateCreateComment(input);
@@ -88,6 +102,10 @@ export class CommentStore {
 
   thread(rootId: string): readonly ReviewComment[] {
     return this.state.comments.filter(comment => comment.id === rootId || comment.parentId === rootId);
+  }
+
+  lastComment(rootId: string): ReviewComment | undefined {
+    return this.thread(rootId).at(-1);
   }
 
   async remove(id: string): Promise<RemoveCommentsResult> {
@@ -141,6 +159,13 @@ export class CommentStore {
     if (includeAiGenerated === this.state.includeAiGenerated) return;
     this.state = { ...this.state, includeAiGenerated };
     await this.commit({ includeAiGenerated: true });
+  }
+
+  async setShowAgentLastOnly(showAgentLastOnly: boolean): Promise<void> {
+    showAgentLastOnly = validateShowAgentLastOnly(showAgentLastOnly);
+    if (showAgentLastOnly === this.state.showAgentLastOnly) return;
+    this.state = { ...this.state, showAgentLastOnly };
+    await this.commit({ showAgentLastOnly: true });
   }
 
   async clearReview(): Promise<void> {

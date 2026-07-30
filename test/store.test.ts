@@ -113,8 +113,39 @@ test("persists overall review text and the AI export preference in the shared st
   assert.deepEqual(saved, {
     comments: [],
     overall: "Check the error-handling strategy.",
-    includeAiGenerated: false
+    includeAiGenerated: false,
+    showAgentLastOnly: false
   });
+});
+
+test("filters threads whose latest comment is from the agent", async () => {
+  const humanLast = comment(ids.one, "Waiting for AI");
+  const agentLast = comment(ids.two, "Please investigate");
+  const agentReply = {
+    ...comment(ids.first, "Handled"),
+    parentId: ids.two,
+    author: "Codex",
+    source: "agent" as const
+  };
+  const store = new CommentStore({
+    load: () => ({
+      comments: [humanLast, agentLast, agentReply],
+      overall: "",
+      includeAiGenerated: true
+    }),
+    save: async () => undefined
+  });
+  const changes: CommentStoreChange[] = [];
+  store.onDidChange(change => changes.push(change));
+
+  assert.deepEqual(store.visibleThreadRoots().map(item => item.id), [ids.one, ids.two]);
+  await store.setShowAgentLastOnly(true);
+  assert.equal(store.showsAgentLastOnly(), true);
+  assert.deepEqual(store.visibleThreadRoots().map(item => item.id), [ids.two]);
+  assert.deepEqual(changes, [{ showAgentLastOnly: true }]);
+
+  await store.reply(ids.two, { body: "One more question", author: "Human", source: "human" });
+  assert.deepEqual(store.visibleThreadRoots(), []);
 });
 
 test("reports which part of the state changed", async () => {

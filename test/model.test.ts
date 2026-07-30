@@ -66,7 +66,8 @@ test("validates the complete persisted state including thread invariants", () =>
   const valid = {
     comments: [validComment],
     overall: "",
-    includeAiGenerated: true
+    includeAiGenerated: true,
+    showAgentLastOnly: false
   };
   assert.deepEqual(validateReviewRelayState(valid), valid);
 
@@ -110,6 +111,7 @@ test("normalizes legacy nested replies into one ordered thread", () => {
     includeAiGenerated: true
   });
 
+  assert.equal(state.showAgentLastOnly, false);
   assert.deepEqual(state.comments.map(comment => comment.parentId), [
     undefined,
     validComment.id,

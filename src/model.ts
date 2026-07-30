@@ -85,7 +85,8 @@ const navigateSchema = z.union([navigateByCommentSchema, navigateByLocationSchem
 export const reviewRelayStateSchema = z.strictObject({
   comments: z.array(reviewCommentSchema),
   overall: z.string().max(MAX_OVERALL_LENGTH, `overall must not exceed ${MAX_OVERALL_LENGTH} characters.`),
-  includeAiGenerated: z.boolean()
+  includeAiGenerated: z.boolean(),
+  showAgentLastOnly: z.boolean().default(false)
 }).superRefine((state, context) => {
   const byId = new Map<string, ReviewComment>();
   for (const [index, comment] of state.comments.entries()) {
@@ -166,6 +167,10 @@ export function validateOverall(value: unknown): string {
 }
 
 export function validateIncludeAiGenerated(value: unknown): boolean {
+  return z.boolean().parse(value);
+}
+
+export function validateShowAgentLastOnly(value: unknown): boolean {
   return z.boolean().parse(value);
 }
 

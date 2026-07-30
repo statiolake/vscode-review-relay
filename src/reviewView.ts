@@ -5,6 +5,7 @@ type IncomingMessage =
   | { type: "ready" }
   | { type: "overallChanged"; value: string }
   | { type: "includeAiChanged"; value: boolean }
+  | { type: "showAgentLastOnlyChanged"; value: boolean }
   | { type: "clear" }
   | { type: "copyMarkdown" }
   | { type: "copyAgentInstructions" };
@@ -30,6 +31,7 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
       case "ready": this.postState(); break;
       case "overallChanged": await this.store.setOverall(message.value); break;
       case "includeAiChanged": await this.store.setIncludeAiGenerated(message.value); break;
+      case "showAgentLastOnlyChanged": await this.store.setShowAgentLastOnly(message.value); break;
       case "clear": await vscode.commands.executeCommand("reviewRelay.clearReview"); break;
       case "copyMarkdown": await vscode.commands.executeCommand("reviewRelay.copyMarkdown"); break;
       case "copyAgentInstructions": await vscode.commands.executeCommand("reviewRelay.copyAgentInstructions"); break;
@@ -42,6 +44,7 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
       type: "state",
       overall: this.store.getOverall(),
       includeAiGenerated: this.store.includesAiGenerated(),
+      showAgentLastOnly: this.store.showsAgentLastOnly(),
       humanCount: comments.filter(comment => comment.source === "human").length,
       aiCount: comments.filter(comment => comment.source === "agent").length
     });
@@ -86,12 +89,14 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
   </div>
   <textarea id="overall" placeholder="Summary, overall guidance, or context for the coding agent…"></textarea>
   <label class="option"><input id="includeAi" type="checkbox"> Include AI-generated comments</label>
+  <label class="option"><input id="showAgentLastOnly" type="checkbox"> Show only threads last answered by AI</label>
   <div class="actions"><button id="copyMarkdown">Copy as Markdown</button></div>
   <section class="agent"><h2>Live agent connection</h2><span class="count">Copy the endpoint, CLI path, and interface contract.</span><button id="copyAgent" class="secondary">Copy Agent Instructions</button></section>
 </main><script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
   const overall = document.getElementById('overall');
   const includeAi = document.getElementById('includeAi');
+  const showAgentLastOnly = document.getElementById('showAgentLastOnly');
   const count = document.getElementById('count');
   const overflow = document.getElementById('overflow');
   let timer; let lastSent = ''; let composing = false;
@@ -102,12 +107,13 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
   overall.addEventListener('compositionend', () => { composing = false; scheduleOverall(); });
   overall.addEventListener('blur', sendOverall);
   includeAi.addEventListener('change', () => vscode.postMessage({ type: 'includeAiChanged', value: includeAi.checked }));
+  showAgentLastOnly.addEventListener('change', () => vscode.postMessage({ type: 'showAgentLastOnlyChanged', value: showAgentLastOnly.checked }));
   document.getElementById('clear').addEventListener('click', () => { overflow.removeAttribute('open'); vscode.postMessage({ type: 'clear' }); });
   document.addEventListener('click', event => { if (!overflow.contains(event.target)) overflow.removeAttribute('open'); });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229 && overflow.hasAttribute('open')) { overflow.removeAttribute('open'); overflow.querySelector('summary').focus(); } });
   document.getElementById('copyMarkdown').addEventListener('click', () => vscode.postMessage({ type: 'copyMarkdown' }));
   document.getElementById('copyAgent').addEventListener('click', () => vscode.postMessage({ type: 'copyAgentInstructions' }));
-  window.addEventListener('message', event => { const state = event.data; if (state.type !== 'state') return; if (document.activeElement !== overall) { overall.value = state.overall; lastSent = state.overall; } includeAi.checked = state.includeAiGenerated; count.textContent = state.humanCount + ' human · ' + state.aiCount + ' AI'; });
+  window.addEventListener('message', event => { const state = event.data; if (state.type !== 'state') return; if (document.activeElement !== overall) { overall.value = state.overall; lastSent = state.overall; } includeAi.checked = state.includeAiGenerated; showAgentLastOnly.checked = state.showAgentLastOnly; count.textContent = state.humanCount + ' human · ' + state.aiCount + ' AI'; });
   vscode.postMessage({ type: 'ready' });
 </script></body></html>`;
   }
