@@ -7,6 +7,7 @@ interface Manifest {
   contributes?: {
     commands?: Array<{ command: string }>;
     menus?: Record<string, Array<{ command: string }>>;
+    views?: Record<string, Array<{ id: string; name: string; type?: string }>>;
   };
 }
 
@@ -21,4 +22,16 @@ test("offers comment ID copying in the tree and native comment UI", () => {
   for (const menu of ["view/item/context", "comments/comment/title"]) {
     assert.ok(manifest.contributes?.menus?.[menu]?.some(item => item.command === "reviewRelay.copyCommentId"), menu);
   }
+});
+
+test("separates comment controls from the review editor", () => {
+  assert.deepEqual(manifest.contributes?.views?.reviewRelay?.map(view => ({
+    id: view.id,
+    name: view.name,
+    type: view.type
+  })), [
+    { id: "reviewRelay.comments", name: "Comments", type: undefined },
+    { id: "reviewRelay.commentsControls", name: "Options", type: "webview" },
+    { id: "reviewRelay.review", name: "Review", type: "webview" }
+  ]);
 });

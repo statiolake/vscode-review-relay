@@ -15,7 +15,7 @@ Comments are also shown inline through VS Code's native Comments UI. You can rep
 
 ## Connect a coding agent
 
-Run **Review Relay: Copy Agent Instructions** and paste the result into your agent chat. The instructions contain the current workspace, connection details, complete interface, and ready-to-run commands.
+Use **Copy Agent Instructions** in **Options** and paste the result into your agent chat. The instructions contain the current workspace, connection details, complete interface, and ready-to-run commands.
 
 Review Relay includes a dependency-free CLI for macOS, Linux, and Windows. The extension and its loopback server run on the local UI host, including when VS Code is connected to a Dev Container, SSH host, or WSL workspace. Local workspaces are discovered from their path; copied agent instructions use the explicit local endpoint for remote workspaces.
 
@@ -26,7 +26,7 @@ Agents can:
 - Navigate VS Code to a comment or source location
 - Delete comments when explicitly requested
 
-If an agent cannot access the host loopback interface or filesystem, use **Copy as Markdown** in the Review Relay view. The export includes the complete conversation, including AI replies.
+If an agent cannot access the host loopback interface or filesystem, use **Copy as Markdown** in the **Review** view. The export includes the complete conversation, including AI replies.
 
 ## Local and safe by default
 

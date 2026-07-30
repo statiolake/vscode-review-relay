@@ -29,6 +29,7 @@
     "views": {
       "reviewRelay": [
         { "id": "reviewRelay.comments", "name": "Comments" },
+        { "id": "reviewRelay.commentsControls", "name": "Options", "type": "webview" },
         { "id": "reviewRelay.review", "name": "Review", "type": "webview" }
       ]
     },

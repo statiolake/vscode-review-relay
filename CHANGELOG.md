@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Keep the Review view focused on the overall comment and Markdown export.
+- Move the thread filter and agent instructions into a dedicated Options view.
+
 ## 0.1.8
 
 - Open a comment from its thread label while reserving the disclosure arrow for the flat conversation.

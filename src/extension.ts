@@ -8,6 +8,7 @@ import { renderReviewMarkdown } from "./markdown";
 import { ReviewViewProvider } from "./reviewView";
 import { SessionRegistration } from "./sessionRegistry";
 import { CommentsTreeElement, CommentsTreeProvider } from "./commentsTree";
+import { CommentsControlsViewProvider } from "./commentsControlsView";
 import { createWorkspacePersistence, resetWorkspaceData } from "./workspacePersistence";
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -53,6 +54,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const cliName = process.platform === "win32" ? "review-relay.exe" : "review-relay";
   const cliPath = context.asAbsolutePath(`bin/${cliPlatform}-${cliArch}/${cliName}`);
   const reviewView = new ReviewViewProvider(store);
+  const commentsControlsView = new CommentsControlsViewProvider(store);
   const commentsTree = new CommentsTreeProvider(store);
   const copyAgentInstructions = async () => {
     const instructions = createAgentInstructions({
@@ -72,6 +74,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     comments,
     reviewView,
+    commentsControlsView,
     commentsTree,
     status,
     { dispose: () => { void session.dispose(); void server.stop(); } },
@@ -83,6 +86,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerWebviewViewProvider(ReviewViewProvider.viewType, reviewView, {
       webviewOptions: { retainContextWhenHidden: true }
     }),
+    vscode.window.registerWebviewViewProvider(CommentsControlsViewProvider.viewType, commentsControlsView),
     vscode.window.registerTreeDataProvider(CommentsTreeProvider.viewType, commentsTree),
     vscode.commands.registerCommand("reviewRelay.addComment", () => comments.addAtSelection()),
     vscode.commands.registerCommand("reviewRelay.submitComment", (reply: vscode.CommentReply) => comments.submit(reply)),

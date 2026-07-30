@@ -1,13 +1,11 @@
 import * as vscode from "vscode";
 import { CommentStore } from "./store";
+import { renderWebviewDocument } from "./webviewDocument";
 
 type IncomingMessage =
   | { type: "ready" }
   | { type: "overallChanged"; value: string }
-  | { type: "showAgentLastOnlyChanged"; value: boolean }
-  | { type: "clear" }
-  | { type: "copyMarkdown" }
-  | { type: "copyAgentInstructions" };
+  | { type: "copyMarkdown" };
 
 export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   static readonly viewType = "reviewRelay.review";
@@ -15,7 +13,9 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
   private readonly subscription: vscode.Disposable;
 
   constructor(private readonly store: CommentStore) {
-    this.subscription = store.onDidChange(() => this.postState());
+    this.subscription = store.onDidChange(change => {
+      if (change.overall) this.postState();
+    });
   }
 
   resolveWebviewView(view: vscode.WebviewView): void {
@@ -29,97 +29,74 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
     switch (message.type) {
       case "ready": this.postState(); break;
       case "overallChanged": await this.store.setOverall(message.value); break;
-      case "showAgentLastOnlyChanged": await this.store.setShowAgentLastOnly(message.value); break;
-      case "clear": await vscode.commands.executeCommand("reviewRelay.clearReview"); break;
       case "copyMarkdown": await vscode.commands.executeCommand("reviewRelay.copyMarkdown"); break;
-      case "copyAgentInstructions": await vscode.commands.executeCommand("reviewRelay.copyAgentInstructions"); break;
     }
   }
 
   private postState(): void {
-    const comments = this.store.list();
     void this.view?.webview.postMessage({
       type: "state",
-      overall: this.store.getOverall(),
-      showAgentLastOnly: this.store.showsAgentLastOnly(),
-      humanCount: comments.filter(comment => comment.source === "human").length,
-      aiCount: comments.filter(comment => comment.source === "agent").length
+      overall: this.store.getOverall()
     });
   }
 
   private html(webview: vscode.Webview): string {
-    const nonce = createNonce();
-    const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'`;
-    return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="${csp}">
-<style>
+    return renderWebviewDocument(webview, {
+      styles: `
   * { box-sizing: border-box; }
   body { margin: 0; padding: 12px; color: var(--vscode-foreground); font: var(--vscode-font-size)/1.4 var(--vscode-font-family); }
-  main { min-height: calc(100vh - 24px); display: flex; flex-direction: column; gap: 12px; }
-  .heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .heading-text { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  main { display: grid; gap: 12px; }
   h2 { margin: 0; font-size: 13px; font-weight: 600; }
-  .count { color: var(--vscode-descriptionForeground); font-size: 11px; }
-  textarea { width: 100%; height: 132px; min-height: 112px; flex: none; resize: vertical; padding: 8px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); font: var(--vscode-editor-font-size) var(--vscode-editor-font-family); }
+  textarea { width: 100%; height: 132px; min-height: 112px; resize: vertical; padding: 8px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); font: var(--vscode-editor-font-size) var(--vscode-editor-font-family); }
   textarea:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
-  .option { display: flex; align-items: center; gap: 7px; cursor: pointer; }
-  .option input { margin: 0; }
-  .view-options { display: grid; gap: 7px; padding-bottom: 12px; border-bottom: 1px solid var(--vscode-widget-border); }
-  .actions button { width: 100%; }
-  button { border: 0; border-radius: 2px; padding: 7px 10px; cursor: pointer; color: var(--vscode-button-foreground); background: var(--vscode-button-background); font: inherit; }
+  button { width: 100%; border: 0; border-radius: 2px; padding: 7px 10px; cursor: pointer; color: var(--vscode-button-foreground); background: var(--vscode-button-background); font: inherit; }
   button:hover { background: var(--vscode-button-hoverBackground); }
-  button.secondary { color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); }
-  button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
-  .overflow { position: relative; flex: none; }
-  .overflow summary { list-style: none; width: 26px; height: 24px; display: grid; place-items: center; border-radius: 3px; cursor: pointer; color: var(--vscode-icon-foreground); font-size: 18px; line-height: 1; user-select: none; }
-  .overflow summary::-webkit-details-marker { display: none; }
-  .overflow summary:hover, .overflow[open] summary { background: var(--vscode-toolbar-hoverBackground); }
-  .overflow summary:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
-  .menu { position: absolute; z-index: 10; top: 27px; right: 0; min-width: 150px; padding: 4px; background: var(--vscode-menu-background); color: var(--vscode-menu-foreground); border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border)); box-shadow: 0 2px 8px var(--vscode-widget-shadow); }
-  .menu button { width: 100%; padding: 5px 8px; text-align: left; color: inherit; background: transparent; }
-  .menu button:hover, .menu button:focus { color: var(--vscode-menu-selectionForeground); background: var(--vscode-menu-selectionBackground); outline: none; }
-  .agent { margin-top: 2px; padding-top: 12px; border-top: 1px solid var(--vscode-widget-border); display: grid; gap: 7px; }
-  .agent button { width: 100%; }
-</style></head><body><main>
-  <section class="view-options">
-    <h2>Comments</h2>
-    <label class="option"><input id="showAgentLastOnly" type="checkbox"> Show only threads last answered by AI</label>
-  </section>
-  <div class="heading">
-    <div class="heading-text"><h2>Overall comment</h2><span id="count" class="count"></span></div>
-    <details id="overflow" class="overflow"><summary aria-label="More actions" title="More actions">⋯</summary><div class="menu" role="menu"><button id="clear" role="menuitem">Clear review…</button></div></details>
-  </div>
+`,
+      body: `<main>
+  <h2>Overall comment</h2>
   <textarea id="overall" placeholder="Summary, overall guidance, or context for the coding agent…"></textarea>
-  <div class="actions"><button id="copyMarkdown">Copy as Markdown</button></div>
-  <section class="agent"><h2>Live agent connection</h2><span class="count">Copy the endpoint, CLI path, and interface contract.</span><button id="copyAgent" class="secondary">Copy Agent Instructions</button></section>
-</main><script nonce="${nonce}">
+  <button id="copyMarkdown">Copy as Markdown</button>
+</main>`,
+      script: `
   const vscode = acquireVsCodeApi();
   const overall = document.getElementById('overall');
-  const showAgentLastOnly = document.getElementById('showAgentLastOnly');
-  const count = document.getElementById('count');
-  const overflow = document.getElementById('overflow');
-  let timer; let lastSent = ''; let composing = false;
-  const sendOverall = () => { clearTimeout(timer); if (!composing && overall.value !== lastSent) { lastSent = overall.value; vscode.postMessage({ type: 'overallChanged', value: overall.value }); } };
-  const scheduleOverall = () => { clearTimeout(timer); if (!composing) timer = setTimeout(sendOverall, 250); };
+  let timer;
+  let lastSent = '';
+  let composing = false;
+  const sendOverall = () => {
+    clearTimeout(timer);
+    if (!composing && overall.value !== lastSent) {
+      lastSent = overall.value;
+      vscode.postMessage({ type: 'overallChanged', value: overall.value });
+    }
+  };
+  const scheduleOverall = () => {
+    clearTimeout(timer);
+    if (!composing) timer = setTimeout(sendOverall, 250);
+  };
   overall.addEventListener('input', scheduleOverall);
-  overall.addEventListener('compositionstart', () => { composing = true; clearTimeout(timer); });
-  overall.addEventListener('compositionend', () => { composing = false; scheduleOverall(); });
+  overall.addEventListener('compositionstart', () => {
+    composing = true;
+    clearTimeout(timer);
+  });
+  overall.addEventListener('compositionend', () => {
+    composing = false;
+    scheduleOverall();
+  });
   overall.addEventListener('blur', sendOverall);
-  showAgentLastOnly.addEventListener('change', () => vscode.postMessage({ type: 'showAgentLastOnlyChanged', value: showAgentLastOnly.checked }));
-  document.getElementById('clear').addEventListener('click', () => { overflow.removeAttribute('open'); vscode.postMessage({ type: 'clear' }); });
-  document.addEventListener('click', event => { if (!overflow.contains(event.target)) overflow.removeAttribute('open'); });
-  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229 && overflow.hasAttribute('open')) { overflow.removeAttribute('open'); overflow.querySelector('summary').focus(); } });
   document.getElementById('copyMarkdown').addEventListener('click', () => vscode.postMessage({ type: 'copyMarkdown' }));
-  document.getElementById('copyAgent').addEventListener('click', () => vscode.postMessage({ type: 'copyAgentInstructions' }));
-  window.addEventListener('message', event => { const state = event.data; if (state.type !== 'state') return; if (document.activeElement !== overall) { overall.value = state.overall; lastSent = state.overall; } showAgentLastOnly.checked = state.showAgentLastOnly; count.textContent = state.humanCount + ' human · ' + state.aiCount + ' AI'; });
+  window.addEventListener('message', event => {
+    const state = event.data;
+    if (state.type !== 'state' || document.activeElement === overall) return;
+    overall.value = state.overall;
+    lastSent = state.overall;
+  });
   vscode.postMessage({ type: 'ready' });
-</script></body></html>`;
+`
+    });
   }
 
-  dispose(): void { this.subscription.dispose(); }
-}
-
-function createNonce(): string {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  return Array.from({ length: 32 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+  dispose(): void {
+    this.subscription.dispose();
+  }
 }
