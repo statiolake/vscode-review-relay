@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.8
 
 - Open a comment from its thread label while reserving the disclosure arrow for the flat conversation.
 - Open and select comment locations atomically before expanding their native thread.
