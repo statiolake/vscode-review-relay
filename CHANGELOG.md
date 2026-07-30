@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.7
 
 - Expand the native comment thread when selecting a comment in the Review Relay tree.
 - Show one row per comment thread and expand it into a flat, ordered conversation.
