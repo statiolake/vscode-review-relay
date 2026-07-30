@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ReviewComment } from "../src/model";
+import { ReviewComment, ReviewRelayState } from "../src/model";
 import { CommentStore, CommentStoreChange } from "../src/store";
 
 const ids = {
@@ -37,7 +37,7 @@ test("updates a comment body without changing its identity", async () => {
   };
   let persisted = [original];
   const store = new CommentStore({
-    load: () => ({ comments: persisted, overall: "", includeAiGenerated: true }),
+    load: () => ({ comments: persisted, overall: "" }),
     save: async state => { persisted = [...state.comments]; }
   });
 
@@ -50,8 +50,7 @@ test("reports remaining comments after removal", async () => {
   const store = new CommentStore({
     load: () => ({
       comments: [comment(ids.one, "one"), comment(ids.two, "two")],
-      overall: "",
-      includeAiGenerated: true
+      overall: ""
     }),
     save: async () => undefined
   });
@@ -64,7 +63,7 @@ test("stores replies in a thread and cascades deletion from their parent", async
   const root = comment(ids.root, "root");
   let persisted = [root];
   const store = new CommentStore({
-    load: () => ({ comments: persisted, overall: "", includeAiGenerated: true }),
+    load: () => ({ comments: persisted, overall: "" }),
     save: async state => { persisted = [...state.comments]; }
   });
 
@@ -90,7 +89,7 @@ test("deleting one reply preserves its parent and sibling replies", async () => 
   const first = { ...comment(ids.first, "first"), parentId: ids.root };
   const second = { ...comment(ids.second, "second"), parentId: ids.root };
   const store = new CommentStore({
-    load: () => ({ comments: [root, first, second], overall: "", includeAiGenerated: true }),
+    load: () => ({ comments: [root, first, second], overall: "" }),
     save: async () => undefined
   });
 
@@ -98,22 +97,19 @@ test("deleting one reply preserves its parent and sibling replies", async () => 
   assert.deepEqual(store.list().map(item => item.id), [ids.root, ids.second]);
 });
 
-test("persists overall review text and the AI export preference in the shared state", async () => {
-  let saved = { comments: [] as ReviewComment[], overall: "", includeAiGenerated: true };
+test("persists overall review text without the legacy AI export preference", async () => {
+  let saved: ReviewRelayState | undefined;
   const store = new CommentStore({
-    load: () => saved,
+    load: () => ({ comments: [], overall: "", includeAiGenerated: false }),
     save: async state => { saved = { ...state, comments: [...state.comments] }; }
   });
 
   await store.setOverall("Check the error-handling strategy.");
-  await store.setIncludeAiGenerated(false);
 
   assert.equal(store.getOverall(), "Check the error-handling strategy.");
-  assert.equal(store.includesAiGenerated(), false);
   assert.deepEqual(saved, {
     comments: [],
     overall: "Check the error-handling strategy.",
-    includeAiGenerated: false,
     showAgentLastOnly: false
   });
 });
@@ -130,8 +126,7 @@ test("filters threads whose latest comment is from the agent", async () => {
   const store = new CommentStore({
     load: () => ({
       comments: [humanLast, agentLast, agentReply],
-      overall: "",
-      includeAiGenerated: true
+      overall: ""
     }),
     save: async () => undefined
   });
@@ -150,7 +145,7 @@ test("filters threads whose latest comment is from the agent", async () => {
 
 test("reports which part of the state changed", async () => {
   const store = new CommentStore({
-    load: () => ({ comments: [], overall: "", includeAiGenerated: true }),
+    load: () => ({ comments: [], overall: "" }),
     save: async () => undefined
   });
   const changes: CommentStoreChange[] = [];
@@ -163,13 +158,11 @@ test("reports which part of the state changed", async () => {
     source: "agent"
   });
   await store.setOverall("Overall");
-  await store.setIncludeAiGenerated(false);
   await store.remove(added.id);
 
   assert.deepEqual(changes, [
     { comments: true },
     { overall: true },
-    { includeAiGenerated: true },
     { comments: true }
   ]);
 });
@@ -178,8 +171,7 @@ test("clear review reports every state domain it actually clears", async () => {
   const store = new CommentStore({
     load: () => ({
       comments: [comment(ids.one)],
-      overall: "Overall",
-      includeAiGenerated: true
+      overall: "Overall"
     }),
     save: async () => undefined
   });
@@ -196,8 +188,7 @@ test("fails fast without saving when persisted state is corrupted", () => {
   assert.throws(() => new CommentStore({
     load: () => ({
       comments: [{ ...comment(ids.one), uri: "not-a-uri" }],
-      overall: "",
-      includeAiGenerated: true
+      overall: ""
     }),
     save: async () => { saveCount += 1; }
   }), /valid absolute VS Code document URI/);

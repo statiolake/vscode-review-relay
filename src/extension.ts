@@ -108,7 +108,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }, "user");
     }),
     vscode.commands.registerCommand("reviewRelay.deleteTreeComment", async (element: CommentsTreeElement) => {
-      if (element?.kind !== "comment") return;
+      if (!element || element.kind === "file") return;
       await store.remove(element.id);
     }),
     vscode.commands.registerCommand("reviewRelay.copyEndpoint", async () => {
@@ -140,7 +140,12 @@ export function deactivate(): void {}
 function commentIdOf(target: unknown): string | undefined {
   if (!target || typeof target !== "object") return undefined;
   if ("reviewRelayId" in target && typeof target.reviewRelayId === "string") return target.reviewRelayId;
-  if ("kind" in target && target.kind === "comment" && "id" in target && typeof target.id === "string") return target.id;
+  if (
+    "kind" in target
+    && (target.kind === "thread" || target.kind === "comment")
+    && "id" in target
+    && typeof target.id === "string"
+  ) return target.id;
   return undefined;
 }
 

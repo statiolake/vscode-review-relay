@@ -3,6 +3,7 @@ import { CommentStore } from "./store";
 
 export type CommentsTreeElement =
   | { kind: "file"; uri: string }
+  | { kind: "thread"; id: string }
   | { kind: "comment"; id: string };
 
 export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTreeElement>, vscode.Disposable {
@@ -29,16 +30,20 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
     }
 
     const comment = this.store.list().find(candidate => candidate.id === element.id);
-    const replies = comment ? this.store.thread(comment.id).length - 1 : 0;
-    const agentLast = comment ? this.store.lastComment(comment.id)?.source === "agent" : false;
-    const lines = comment
-      ? comment.range.start.line === comment.range.end.line
-        ? `L${comment.range.start.line + 1}`
-        : `L${comment.range.start.line + 1}–${comment.range.end.line + 1}`
-      : "";
-    const preview = firstLine(comment?.body ?? "");
-    const item = new vscode.TreeItem(comment ? `${lines} — ${preview}` : "(missing comment)");
-    if (comment) {
+    if (element.kind === "thread") {
+      const replies = comment ? this.store.thread(comment.id).length - 1 : 0;
+      const agentLast = comment ? this.store.lastComment(comment.id)?.source === "agent" : false;
+      const lines = comment
+        ? comment.range.start.line === comment.range.end.line
+          ? `L${comment.range.start.line + 1}`
+          : `L${comment.range.start.line + 1}–${comment.range.end.line + 1}`
+        : "";
+      const preview = firstLine(comment?.body ?? "");
+      const item = new vscode.TreeItem(
+        comment ? `${lines} — ${preview}` : "(missing thread)",
+        vscode.TreeItemCollapsibleState.Collapsed
+      );
+      if (!comment) return item;
       const conversation = replies === 0
         ? comment.author
         : `${comment.author} · ${replies} ${replies === 1 ? "reply" : "replies"}`;
@@ -48,6 +53,17 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
       tooltip.isTrusted = false;
       item.tooltip = tooltip;
       item.iconPath = new vscode.ThemeIcon(agentLast ? "comment-unresolved" : "comment");
+      item.contextValue = "reviewRelayComment";
+      return item;
+    }
+
+    const item = new vscode.TreeItem(comment ? firstLine(comment.body) : "(missing comment)");
+    if (comment) {
+      item.description = comment.author;
+      const tooltip = new vscode.MarkdownString(comment.body);
+      tooltip.isTrusted = false;
+      item.tooltip = tooltip;
+      item.iconPath = new vscode.ThemeIcon(comment.source === "agent" ? "sparkle" : "person");
       item.command = navigateCommand(comment.id);
     }
     item.contextValue = "reviewRelayComment";
@@ -68,6 +84,10 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
           || left.range.end.line - right.range.end.line
           || left.createdAt.localeCompare(right.createdAt)
         )
+        .map(comment => ({ kind: "thread", id: comment.id }));
+    }
+    if (element.kind === "thread") {
+      return this.store.thread(element.id)
         .map(comment => ({ kind: "comment", id: comment.id }));
     }
     return [];

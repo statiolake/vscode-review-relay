@@ -26,7 +26,7 @@ Agents can:
 - Navigate VS Code to a comment or source location
 - Delete comments when explicitly requested
 
-If an agent cannot access the host loopback interface or filesystem, use **Copy as Markdown** in the Review Relay view. **Include AI-generated comments** controls whether agent comments are included.
+If an agent cannot access the host loopback interface or filesystem, use **Copy as Markdown** in the Review Relay view. The export includes the complete conversation, including AI replies.
 
 ## Local and safe by default
 

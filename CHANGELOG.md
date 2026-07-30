@@ -3,9 +3,10 @@
 ## Unreleased
 
 - Expand the native comment thread when selecting a comment in the Review Relay tree.
-- Show one row per comment thread and keep all replies in the native ordered conversation.
+- Show one row per comment thread and expand it into a flat, ordered conversation.
 - Copy root or reply comment IDs from the Review Relay tree and native comment UI.
 - Distinguish AI-last threads and optionally filter the tree to threads awaiting human review.
+- Move the thread filter next to the Comments view, shorten the overall-comment editor, and always include AI replies in Markdown exports.
 
 ## 0.1.6
 

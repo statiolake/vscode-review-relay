@@ -14,8 +14,7 @@ export async function renderReviewMarkdown(store: CommentStore): Promise<string>
   const overall = store.getOverall().trim();
   if (overall) parts.push(overall, "");
 
-  const included = store.list().filter(comment => store.includesAiGenerated() || comment.source !== "agent");
-  for (const group of groupByLocation(included)) {
+  for (const group of groupByLocation(store.list())) {
     const label = documentLabel(group.uri);
     const lines = group.startLine === group.endLine
       ? `${group.startLine + 1}`

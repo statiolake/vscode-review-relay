@@ -19,7 +19,7 @@ function createNavigationSpy() {
 test("comments round-trip through the loopback API", async () => {
   let persisted: ReviewComment[] = [];
   const store = new CommentStore({
-    load: () => ({ comments: persisted, overall: "Review the error handling.", includeAiGenerated: true }),
+    load: () => ({ comments: persisted, overall: "Review the error handling." }),
     save: async state => { persisted = [...state.comments]; }
   });
   const navigation = createNavigationSpy();
@@ -118,7 +118,7 @@ test("comments round-trip through the loopback API", async () => {
 
 test("write endpoints reject browser-origin requests", async () => {
   const store = new CommentStore({
-    load: () => ({ comments: [], overall: "", includeAiGenerated: true }),
+    load: () => ({ comments: [], overall: "" }),
     save: async () => undefined
   });
   const server = new CommentServer(store, createNavigationSpy().service);
@@ -138,7 +138,7 @@ test("write endpoints reject browser-origin requests", async () => {
 test("API rejects invalid comments before they reach persistence", async () => {
   let saveCount = 0;
   const store = new CommentStore({
-    load: () => ({ comments: [], overall: "", includeAiGenerated: true }),
+    load: () => ({ comments: [], overall: "" }),
     save: async () => { saveCount += 1; }
   });
   const server = new CommentServer(store, createNavigationSpy().service);

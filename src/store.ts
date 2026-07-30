@@ -8,7 +8,6 @@ import {
   validateCommentId,
   validateCreateComment,
   validateCreateReply,
-  validateIncludeAiGenerated,
   validateOverall,
   validateReviewRelayState,
   validateShowAgentLastOnly
@@ -27,7 +26,6 @@ export interface RemoveCommentsResult {
 export interface CommentStoreChange {
   comments?: true;
   overall?: true;
-  includeAiGenerated?: true;
   showAgentLastOnly?: true;
 }
 
@@ -41,7 +39,6 @@ export class CommentStore {
 
   list(): readonly ReviewComment[] { return this.state.comments; }
   getOverall(): string { return this.state.overall; }
-  includesAiGenerated(): boolean { return this.state.includeAiGenerated; }
   showsAgentLastOnly(): boolean { return this.state.showAgentLastOnly; }
 
   threadRoots(): readonly ReviewComment[] {
@@ -152,13 +149,6 @@ export class CommentStore {
     if (overall === this.state.overall) return;
     this.state = { ...this.state, overall };
     await this.commit({ overall: true });
-  }
-
-  async setIncludeAiGenerated(includeAiGenerated: boolean): Promise<void> {
-    includeAiGenerated = validateIncludeAiGenerated(includeAiGenerated);
-    if (includeAiGenerated === this.state.includeAiGenerated) return;
-    this.state = { ...this.state, includeAiGenerated };
-    await this.commit({ includeAiGenerated: true });
   }
 
   async setShowAgentLastOnly(showAgentLastOnly: boolean): Promise<void> {
