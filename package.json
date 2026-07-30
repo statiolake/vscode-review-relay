@@ -38,6 +38,7 @@
       { "command": "reviewRelay.saveComment", "title": "Save", "icon": "$(check)" },
       { "command": "reviewRelay.cancelEditComment", "title": "Cancel", "icon": "$(close)" },
       { "command": "reviewRelay.deleteComment", "title": "Delete", "icon": "$(trash)" },
+      { "command": "reviewRelay.copyCommentId", "title": "Copy Comment ID", "icon": "$(copy)" },
       { "command": "reviewRelay.submitComment", "title": "Add Comment" },
       { "command": "reviewRelay.replyComment", "title": "Reply" },
       { "command": "reviewRelay.copyEndpoint", "title": "Review Relay: Copy API Endpoint" },
@@ -46,8 +47,7 @@
       { "command": "reviewRelay.clearReview", "title": "Review Relay: Clear Review", "icon": "$(clear-all)" },
       { "command": "reviewRelay.clearComments", "title": "Review Relay: Clear All Comments" },
       { "command": "reviewRelay.navigateTreeComment", "title": "Reveal Comment" },
-      { "command": "reviewRelay.deleteTreeComment", "title": "Delete Comment", "icon": "$(trash)" },
-      { "command": "reviewRelay.deleteTreeLocation", "title": "Delete Comments at Location", "icon": "$(trash)" }
+      { "command": "reviewRelay.deleteTreeComment", "title": "Delete Comment", "icon": "$(trash)" }
     ],
     "menus": {
       "commandPalette": [
@@ -57,9 +57,9 @@
         { "command": "reviewRelay.saveComment", "when": "false" },
         { "command": "reviewRelay.cancelEditComment", "when": "false" },
         { "command": "reviewRelay.deleteComment", "when": "false" },
+        { "command": "reviewRelay.copyCommentId", "when": "false" },
         { "command": "reviewRelay.navigateTreeComment", "when": "false" },
-        { "command": "reviewRelay.deleteTreeComment", "when": "false" },
-        { "command": "reviewRelay.deleteTreeLocation", "when": "false" }
+        { "command": "reviewRelay.deleteTreeComment", "when": "false" }
       ],
       "editor/context": [
         { "command": "reviewRelay.addComment", "group": "navigation@50", "when": "editorTextFocus" }
@@ -69,16 +69,17 @@
         { "command": "reviewRelay.replyComment", "group": "inline", "when": "commentController == review-relay && !commentThreadIsEmpty" }
       ],
       "comments/comment/title": [
-        { "command": "reviewRelay.editComment", "group": "inline@1", "when": "commentController == review-relay && comment == preview" },
-        { "command": "reviewRelay.deleteComment", "group": "inline@2", "when": "commentController == review-relay && comment == preview" }
+        { "command": "reviewRelay.copyCommentId", "group": "inline@1", "when": "commentController == review-relay && comment == preview" },
+        { "command": "reviewRelay.editComment", "group": "inline@2", "when": "commentController == review-relay && comment == preview" },
+        { "command": "reviewRelay.deleteComment", "group": "inline@3", "when": "commentController == review-relay && comment == preview" }
       ],
       "comments/comment/context": [
         { "command": "reviewRelay.saveComment", "group": "inline@1", "when": "commentController == review-relay && comment == editing" },
         { "command": "reviewRelay.cancelEditComment", "group": "inline@2", "when": "commentController == review-relay && comment == editing" }
       ],
       "view/item/context": [
-        { "command": "reviewRelay.deleteTreeLocation", "group": "inline", "when": "view == reviewRelay.comments && viewItem == reviewRelayLocation" },
-        { "command": "reviewRelay.deleteTreeComment", "group": "inline", "when": "view == reviewRelay.comments && viewItem == reviewRelayComment" }
+        { "command": "reviewRelay.copyCommentId", "group": "inline@1", "when": "view == reviewRelay.comments && viewItem == reviewRelayComment" },
+        { "command": "reviewRelay.deleteTreeComment", "group": "inline@2", "when": "view == reviewRelay.comments && viewItem == reviewRelayComment" }
       ]
     }
   },

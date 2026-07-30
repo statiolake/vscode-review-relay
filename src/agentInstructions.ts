@@ -87,7 +87,7 @@ Create request:
 
 \`uri\` must be the exact VS Code document URI, such as an absolute \`file:///...\` URI locally or a \`vscode-remote://...\` URI in a remote workspace. Reuse URIs returned by the API when possible. \`line\` and optional \`endLine\` are zero-based and inclusive. \`body\` is required. \`author\`, \`source\`, and \`endLine\` are optional; \`source\` is either \`human\` or \`agent\`.
 
-Comment response fields include \`id\`, optional \`parentId\`, \`uri\`, \`range.start\`, \`range.end\`, \`body\`, \`author\`, \`source\`, and \`createdAt\`. A \`parentId\` identifies a reply. Range lines and characters are zero-based. Delete responses include \`remainingComments\`; use it to notice when more review work remains. Deleting a comment also deletes its replies.
+Comment response fields include \`id\`, optional \`parentId\`, \`uri\`, \`range.start\`, \`range.end\`, \`body\`, \`author\`, \`source\`, and \`createdAt\`. A \`parentId\` identifies the root of an ordered comment thread; replies are never nested. Range lines and characters are zero-based. Delete responses include \`remainingComments\`; use it to notice when more review work remains. Deleting a root comment also deletes its replies.
 
 ## Examples
 

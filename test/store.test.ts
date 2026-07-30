@@ -76,7 +76,12 @@ test("stores replies in a thread and cascades deletion from their parent", async
   assert.deepEqual(store.thread(ids.root).map(item => item.id), [ids.root, reply.id]);
   assert.equal(await store.reply(ids.missing, { body: "No parent" }), undefined);
 
-  assert.deepEqual(await store.remove(ids.root), { removed: 2, remainingComments: 0 });
+  const secondReply = await store.reply(reply.id, { body: "Follow-up", author: "Human", source: "human" });
+  assert.ok(secondReply);
+  assert.equal(secondReply.parentId, ids.root);
+  assert.deepEqual(store.thread(ids.root).map(item => item.id), [ids.root, reply.id, secondReply.id]);
+
+  assert.deepEqual(await store.remove(ids.root), { removed: 3, remainingComments: 0 });
   assert.deepEqual(persisted, []);
 });
 

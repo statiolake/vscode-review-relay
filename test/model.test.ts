@@ -89,3 +89,30 @@ test("validates the complete persisted state including thread invariants", () =>
     comments: [validComment, { ...validComment }]
   }), /Duplicate comment id/);
 });
+
+test("normalizes legacy nested replies into one ordered thread", () => {
+  const firstReply = {
+    ...validComment,
+    id: "00000000-0000-4000-8000-000000000002",
+    parentId: validComment.id,
+    body: "First reply"
+  };
+  const nestedReply = {
+    ...validComment,
+    id: "00000000-0000-4000-8000-000000000003",
+    parentId: firstReply.id,
+    body: "Nested reply"
+  };
+
+  const state = validateReviewRelayState({
+    comments: [validComment, firstReply, nestedReply],
+    overall: "",
+    includeAiGenerated: true
+  });
+
+  assert.deepEqual(state.comments.map(comment => comment.parentId), [
+    undefined,
+    validComment.id,
+    validComment.id
+  ]);
+});

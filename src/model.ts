@@ -170,7 +170,17 @@ export function validateIncludeAiGenerated(value: unknown): boolean {
 }
 
 export function validateReviewRelayState(value: unknown): ReviewRelayState {
-  return reviewRelayStateSchema.parse(value);
+  const state = reviewRelayStateSchema.parse(value);
+  const byId = new Map(state.comments.map(comment => [comment.id, comment]));
+  return {
+    ...state,
+    comments: state.comments.map(comment => {
+      if (!comment.parentId) return comment;
+      let root = byId.get(comment.parentId)!;
+      while (root.parentId) root = byId.get(root.parentId)!;
+      return comment.parentId === root.id ? comment : { ...comment, parentId: root.id };
+    })
+  };
 }
 
 function isValidDocumentUri(value: string): boolean {

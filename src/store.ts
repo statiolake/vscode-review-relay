@@ -60,16 +60,17 @@ export class CommentStore {
     return comment;
   }
 
-  async reply(parentId: string, input: CreateReplyInput): Promise<ReviewComment | undefined> {
-    parentId = validateCommentId(parentId);
+  async reply(commentId: string, input: CreateReplyInput): Promise<ReviewComment | undefined> {
+    commentId = validateCommentId(commentId);
     input = validateCreateReply(input);
-    const parent = this.state.comments.find(comment => comment.id === parentId);
-    if (!parent) return undefined;
+    const rootId = this.rootId(commentId);
+    const root = rootId ? this.state.comments.find(comment => comment.id === rootId) : undefined;
+    if (!root) return undefined;
     const comment: ReviewComment = {
       id: randomUUID(),
-      parentId,
-      uri: parent.uri,
-      range: parent.range,
+      parentId: root.id,
+      uri: root.uri,
+      range: root.range,
       body: input.body.trim(),
       author: input.author?.trim() || (input.source === "human" ? "Human" : "AI"),
       source: input.source ?? "agent",
@@ -81,21 +82,12 @@ export class CommentStore {
   }
 
   rootId(id: string): string | undefined {
-    let current = this.state.comments.find(comment => comment.id === id);
-    if (!current) return undefined;
-    const visited = new Set<string>();
-    while (current.parentId) {
-      if (visited.has(current.id)) return current.id;
-      visited.add(current.id);
-      const parent = this.state.comments.find(comment => comment.id === current!.parentId);
-      if (!parent) break;
-      current = parent;
-    }
-    return current.id;
+    const comment = this.state.comments.find(comment => comment.id === id);
+    return comment?.parentId ?? comment?.id;
   }
 
   thread(rootId: string): readonly ReviewComment[] {
-    return this.state.comments.filter(comment => this.rootId(comment.id) === rootId);
+    return this.state.comments.filter(comment => comment.id === rootId || comment.parentId === rootId);
   }
 
   async remove(id: string): Promise<RemoveCommentsResult> {
@@ -104,17 +96,9 @@ export class CommentStore {
 
   async removeMany(ids: readonly string[]): Promise<RemoveCommentsResult> {
     const removedIds = new Set(ids.map(validateCommentId));
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const comment of this.state.comments) {
-        if (comment.parentId && removedIds.has(comment.parentId) && !removedIds.has(comment.id)) {
-          removedIds.add(comment.id);
-          changed = true;
-        }
-      }
-    }
-    const next = this.state.comments.filter(comment => !removedIds.has(comment.id));
+    const next = this.state.comments.filter(comment =>
+      !removedIds.has(comment.id) && (!comment.parentId || !removedIds.has(comment.parentId))
+    );
     const removed = this.state.comments.length - next.length;
     if (removed === 0) return { removed: 0, remainingComments: this.state.comments.length };
     this.state = { ...this.state, comments: next };

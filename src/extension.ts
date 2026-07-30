@@ -91,9 +91,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand("reviewRelay.saveComment", comment => comments.save(comment)),
     vscode.commands.registerCommand("reviewRelay.cancelEditComment", comment => comments.cancelEdit(comment)),
     vscode.commands.registerCommand("reviewRelay.deleteComment", comment => comments.remove(comment)),
+    vscode.commands.registerCommand("reviewRelay.copyCommentId", async (target: unknown) => {
+      const id = commentIdOf(target);
+      if (!id || !store.list().some(comment => comment.id === id)) return;
+      await vscode.env.clipboard.writeText(id);
+    }),
     vscode.commands.registerCommand("reviewRelay.navigateTreeComment", async (id: string) => {
       const comment = store.list().find(candidate => candidate.id === id);
       if (!comment) return;
+      comments.expandThread(comment.id);
       await navigation.navigate({
         uri: comment.uri,
         line: comment.range.start.line,
@@ -104,10 +110,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand("reviewRelay.deleteTreeComment", async (element: CommentsTreeElement) => {
       if (element?.kind !== "comment") return;
       await store.remove(element.id);
-    }),
-    vscode.commands.registerCommand("reviewRelay.deleteTreeLocation", async (element: CommentsTreeElement) => {
-      if (element?.kind !== "location") return;
-      await store.removeMany(commentsTree.commentIds(element));
     }),
     vscode.commands.registerCommand("reviewRelay.copyEndpoint", async () => {
       await vscode.env.clipboard.writeText(endpoint);
@@ -134,6 +136,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export function deactivate(): void {}
+
+function commentIdOf(target: unknown): string | undefined {
+  if (!target || typeof target !== "object") return undefined;
+  if ("reviewRelayId" in target && typeof target.reviewRelayId === "string") return target.reviewRelayId;
+  if ("kind" in target && target.kind === "comment" && "id" in target && typeof target.id === "string") return target.id;
+  return undefined;
+}
 
 async function offerCorruptStateReset(context: vscode.ExtensionContext, error: unknown): Promise<void> {
   const reason = error instanceof Error ? error.message : String(error);

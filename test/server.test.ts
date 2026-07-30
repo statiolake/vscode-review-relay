@@ -52,6 +52,15 @@ test("comments round-trip through the loopback API", async () => {
     assert.equal(replied.comment.uri, created.comment.uri);
     assert.deepEqual(replied.comment.range, created.comment.range);
 
+    const followUpResponse = await fetch(`${origin}/v1/comments/${replied.comment.id}/replies`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: "One more thought.", author: "Codex" })
+    });
+    assert.equal(followUpResponse.status, 201);
+    const followUp = await followUpResponse.json() as { comment: ReviewComment };
+    assert.equal(followUp.comment.parentId, created.comment.id);
+
     const missingId = "00000000-0000-4000-8000-000000000099";
     const missingReply = await fetch(`${origin}/v1/comments/${missingId}/replies`, {
       method: "POST",

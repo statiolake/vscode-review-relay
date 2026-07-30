@@ -91,6 +91,12 @@ export class VsCodeComments implements vscode.Disposable {
     await this.store.remove(comment.reviewRelayId);
   }
 
+  expandThread(commentId: string): void {
+    const rootId = this.store.rootId(commentId);
+    const thread = rootId ? this.threads.get(rootId) : undefined;
+    if (thread) thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+  }
+
   private render(): void {
     const remaining = new Set(this.threads.keys());
     for (const root of this.store.list().filter(comment => !comment.parentId)) {
