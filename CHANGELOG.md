@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.9
 
 - Keep the Review view focused on the overall comment and Markdown export.
 - Move the thread filter and agent instructions into a dedicated Options view.
