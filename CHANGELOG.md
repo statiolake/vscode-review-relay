@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.10
 
 - Keep persisted comment ranges synchronized with VS Code's native thread positions and require a current line when agents reply so they can relocate a thread after whole-file edits.
 
