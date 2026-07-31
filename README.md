@@ -45,7 +45,7 @@ The copied Agent Instructions are the recommended reference because they include
 ```text
 review-relay comments list
 review-relay comments add --uri URI --line N --body TEXT
-review-relay comments reply COMMENT_ID --body TEXT
+review-relay comments reply COMMENT_ID --line N [--end-line N] --body TEXT
 review-relay comments remove COMMENT_ID
 review-relay comments clear
 review-relay navigate --comment COMMENT_ID

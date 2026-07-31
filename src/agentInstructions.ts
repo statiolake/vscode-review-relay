@@ -46,7 +46,7 @@ Prefer the bundled CLI. It has no runtime dependencies. Local workspaces discove
 "${context.cliPath}" ${cliTarget} comments list
 "${context.cliPath}" ${cliTarget} navigate --comment COMMENT_ID
 "${context.cliPath}" ${cliTarget} comments add --uri DOCUMENT_URI --line 12 --body 'Should this error be propagated?' --author Agent
-"${context.cliPath}" ${cliTarget} comments reply COMMENT_ID --body 'Yes. I updated the caller as well.' --author Agent
+"${context.cliPath}" ${cliTarget} comments reply COMMENT_ID --line 12 --body 'Yes. I updated the caller as well.' --author Agent
 \`\`\`
 
 Available commands are \`health\`, \`comments list\`, \`comments add\`, \`comments reply\`, \`comments remove\`, \`comments clear\`, and \`navigate\`. Use \`--help\` for the complete syntax. The CLI prints the API JSON response to stdout and errors to stderr.
@@ -64,7 +64,7 @@ All responses are JSON. The server only listens on 127.0.0.1.
 - POST /v1/comments
   Creates a comment. Send Content-Type: application/json.
 - POST /v1/comments/<id>/replies
-  Replies to an existing comment. Send { "body": "...", "author": "...", "source": "agent" }. The reply inherits its thread's file and range.
+  Replies to an existing comment. Send { "line": 12, "endLine": 14, "body": "...", "author": "...", "source": "agent" }. \`line\` is required and is the current zero-based start line. \`endLine\` is optional and defaults to \`line\`; the reply moves the whole thread to the supplied range. Read the thread with \`comments list\` first and reuse its current \`range.start.line\` when the location has not changed.
 - POST /v1/navigate
   Opens and reveals a location in VS Code. Send either { "commentId": "..." } or { "uri": "...", "line": 12, "endLine": 14 }. Do not combine target forms.
 - DELETE /v1/comments/<id>
@@ -102,7 +102,7 @@ curl -fsS -X POST ${context.endpoint}/v1/comments \\
   -d '{"uri":"DOCUMENT_URI","line":12,"body":"Should this error be propagated?","author":"Agent","source":"agent"}'
 curl -fsS -X POST ${context.endpoint}/v1/comments/COMMENT_ID/replies \\
   -H 'content-type: application/json' \\
-  -d '{"body":"Yes. I updated the caller as well.","author":"Agent","source":"agent"}'
+  -d '{"line":12,"body":"Yes. I updated the caller as well.","author":"Agent","source":"agent"}'
 \`\`\`
 
 When reporting a comment in chat, include its file, zero-based API line or converted one-based editor line, and comment ID so it can be identified unambiguously.

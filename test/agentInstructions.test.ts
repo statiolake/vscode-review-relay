@@ -17,13 +17,14 @@ test("agent instructions contain the live endpoint, workspace and complete inter
   assert.match(instructions, /"overall": string/);
   assert.match(instructions, /POST \/v1\/comments/);
   assert.match(instructions, /POST \/v1\/comments\/<id>\/replies/);
-  assert.match(instructions, /comments reply COMMENT_ID/);
+  assert.match(instructions, /comments reply COMMENT_ID --line 12/);
   assert.match(instructions, /POST \/v1\/navigate/);
   assert.match(instructions, /DELETE \/v1\/comments\/<id>/);
   assert.match(instructions, /zero-based and inclusive/);
   assert.match(instructions, /Do not delete comments unless the user explicitly asks/);
   assert.match(instructions, /remainingComments/);
   assert.match(instructions, /replies are never nested/);
+  assert.match(instructions, /`line` is required/);
   assert.match(instructions, /Copy Agent Instructions.*again/);
 });
 

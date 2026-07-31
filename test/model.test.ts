@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   validateCreateComment,
+  validateCreateReply,
   validateNavigate,
   validateReviewRelayState
 } from "../src/model";
@@ -60,6 +61,12 @@ test("strictly rejects unknown input fields and invalid ranges", () => {
     body: "Check this",
     unexpected: true
   }));
+  assert.throws(() => validateCreateReply({ body: "Reply" }));
+  assert.deepEqual(validateCreateReply({ line: 4, body: "Reply" }), {
+    line: 4,
+    body: "Reply"
+  });
+  assert.throws(() => validateCreateReply({ line: 4, endLine: 3, body: "Reply" }));
 });
 
 test("validates the complete persisted state including thread invariants", () => {

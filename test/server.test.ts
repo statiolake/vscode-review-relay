@@ -44,18 +44,21 @@ test("comments round-trip through the loopback API", async () => {
     const replyResponse = await fetch(`${origin}/v1/comments/${created.comment.id}/replies`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ body: "Fixed in the caller too.", author: "Codex" })
+      body: JSON.stringify({ line: 8, endLine: 9, body: "Fixed in the caller too.", author: "Codex" })
     });
     assert.equal(replyResponse.status, 201);
     const replied = await replyResponse.json() as { comment: ReviewComment };
     assert.equal(replied.comment.parentId, created.comment.id);
     assert.equal(replied.comment.uri, created.comment.uri);
-    assert.deepEqual(replied.comment.range, created.comment.range);
+    assert.deepEqual(replied.comment.range, {
+      start: { line: 8, character: 0 },
+      end: { line: 9, character: 0 }
+    });
 
     const followUpResponse = await fetch(`${origin}/v1/comments/${replied.comment.id}/replies`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ body: "One more thought.", author: "Codex" })
+      body: JSON.stringify({ line: 8, endLine: 9, body: "One more thought.", author: "Codex" })
     });
     assert.equal(followUpResponse.status, 201);
     const followUp = await followUpResponse.json() as { comment: ReviewComment };
@@ -65,7 +68,7 @@ test("comments round-trip through the loopback API", async () => {
     const missingReply = await fetch(`${origin}/v1/comments/${missingId}/replies`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ body: "No parent" })
+      body: JSON.stringify({ line: 8, body: "No parent" })
     });
     assert.equal(missingReply.status, 404);
 
@@ -76,7 +79,7 @@ test("comments round-trip through the loopback API", async () => {
     });
     assert.equal(navigate.status, 200);
     assert.deepEqual(navigation.targets, [{
-      target: { uri: "file:///repo/app.ts", line: 4, endLine: 4, commentId: created.comment.id },
+      target: { uri: "file:///repo/app.ts", line: 8, endLine: 9, commentId: created.comment.id },
       origin: "external"
     }]);
 

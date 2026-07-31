@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Keep persisted comment ranges synchronized with VS Code's native thread positions and require a current line when agents reply so they can relocate a thread after whole-file edits.
+
 ## 0.1.9
 
 - Keep the Review view focused on the overall comment and Markdown export.

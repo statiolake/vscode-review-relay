@@ -71,11 +71,11 @@ func TestReplyToComment(t *testing.T) {
 	if err := run([]string{
 		"--endpoint", server.URL,
 		"comments", "reply", "comment-1",
-		"--body", "Handled", "--author", "Codex",
+		"--line", "7", "--end-line", "8", "--body", "Handled", "--author", "Codex",
 	}, &out); err != nil {
 		t.Fatal(err)
 	}
-	if received["body"] != "Handled" || received["author"] != "Codex" || received["source"] != "agent" {
+	if received["line"] != float64(7) || received["endLine"] != float64(8) || received["body"] != "Handled" || received["author"] != "Codex" || received["source"] != "agent" {
 		t.Fatalf("unexpected payload: %#v", received)
 	}
 }

@@ -6,11 +6,13 @@ import {
   ReviewRelayState,
   validateCommentBody,
   validateCommentId,
+  validateCommentRange,
   validateCreateComment,
   validateCreateReply,
   validateOverall,
   validateReviewRelayState,
-  validateShowAgentLastOnly
+  validateShowAgentLastOnly,
+  sameRange
 } from "./model";
 
 export interface CommentPersistence {
@@ -25,6 +27,7 @@ export interface RemoveCommentsResult {
 
 export interface CommentStoreChange {
   comments?: true;
+  threadRanges?: true;
   overall?: true;
   showAgentLastOnly?: true;
 }
@@ -77,19 +80,48 @@ export class CommentStore {
     const rootId = this.rootId(commentId);
     const root = rootId ? this.state.comments.find(comment => comment.id === rootId) : undefined;
     if (!root) return undefined;
+    const range: ReviewComment["range"] = {
+      start: { line: input.line, character: 0 },
+      end: { line: input.endLine ?? input.line, character: 0 }
+    };
+    const thread = new Set(this.thread(root.id).map(comment => comment.id));
     const comment: ReviewComment = {
       id: randomUUID(),
       parentId: root.id,
       uri: root.uri,
-      range: root.range,
+      range,
       body: input.body.trim(),
       author: input.author?.trim() || (input.source === "human" ? "Human" : "AI"),
       source: input.source ?? "agent",
       createdAt: new Date().toISOString()
     };
-    this.state = { ...this.state, comments: [...this.state.comments, comment] };
-    await this.commit({ comments: true });
+    this.state = {
+      ...this.state,
+      comments: [
+        ...this.state.comments.map(item => thread.has(item.id) ? { ...item, range } : item),
+        comment
+      ]
+    };
+    await this.commit({ comments: true, threadRanges: true });
     return comment;
+  }
+
+  async setThreadRange(commentId: string, range: ReviewComment["range"]): Promise<boolean> {
+    commentId = validateCommentId(commentId);
+    range = validateCommentRange(range);
+    const rootId = this.rootId(commentId);
+    if (!rootId) return false;
+    const thread = this.thread(rootId);
+    if (thread.length === 0 || thread.every(comment => sameRange(comment.range, range))) return false;
+    const threadIds = new Set(thread.map(comment => comment.id));
+    this.state = {
+      ...this.state,
+      comments: this.state.comments.map(comment =>
+        threadIds.has(comment.id) ? { ...comment, range } : comment
+      )
+    };
+    await this.commit({ threadRanges: true });
+    return true;
   }
 
   rootId(id: string): string | undefined {

@@ -66,9 +66,14 @@ const createCommentSchema = z.strictObject({
 });
 
 const createReplySchema = z.strictObject({
+  line: nonNegativeInteger,
+  endLine: nonNegativeInteger.optional(),
   body: bodyInputSchema,
   author: authorInputSchema.optional(),
   source: commentSourceSchema.optional()
+}).refine(input => input.endLine === undefined || input.endLine >= input.line, {
+  message: "endLine must be greater than or equal to line.",
+  path: ["endLine"]
 });
 
 const navigateByCommentSchema = z.strictObject({ commentId: commentIdSchema });
@@ -157,6 +162,10 @@ export function validateCreateReply(value: unknown): CreateReplyInput {
   return createReplySchema.parse(value);
 }
 
+export function validateCommentRange(value: unknown): ReviewComment["range"] {
+  return rangeSchema.parse(value);
+}
+
 export function validateCommentBody(value: unknown): string {
   return bodyInputSchema.parse(value);
 }
@@ -205,7 +214,7 @@ function comparePositions(
   return left.line - right.line || left.character - right.character;
 }
 
-function sameRange(left: ReviewComment["range"], right: ReviewComment["range"]): boolean {
+export function sameRange(left: ReviewComment["range"], right: ReviewComment["range"]): boolean {
   return left.start.line === right.start.line
     && left.start.character === right.start.character
     && left.end.line === right.end.line

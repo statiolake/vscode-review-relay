@@ -103,10 +103,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand("reviewRelay.navigateTreeComment", async (id: string) => {
       const comment = store.list().find(candidate => candidate.id === id);
       if (!comment) return;
+      const range = comments.currentRange(comment.id) ?? comment.range;
       await navigation.navigate({
         uri: comment.uri,
-        line: comment.range.start.line,
-        endLine: comment.range.end.line,
+        line: range.start.line,
+        endLine: range.end.line,
         commentId: comment.id
       }, "user");
       comments.expandThread(comment.id);

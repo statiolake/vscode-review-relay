@@ -67,18 +67,35 @@ test("stores replies in a thread and cascades deletion from their parent", async
     save: async state => { persisted = [...state.comments]; }
   });
 
-  const reply = await store.reply(ids.root, { body: "  Reply  ", author: "Codex", source: "agent" });
+  const reply = await store.reply(ids.root, {
+    line: 7,
+    body: "  Reply  ",
+    author: "Codex",
+    source: "agent"
+  });
   assert.ok(reply);
   assert.equal(reply.parentId, ids.root);
   assert.equal(reply.body, "Reply");
   assert.equal(store.rootId(reply.id), ids.root);
+  assert.deepEqual(store.thread(ids.root).map(item => item.range.start.line), [7, 7]);
   assert.deepEqual(store.thread(ids.root).map(item => item.id), [ids.root, reply.id]);
-  assert.equal(await store.reply(ids.missing, { body: "No parent" }), undefined);
+  assert.equal(await store.reply(ids.missing, { line: 7, body: "No parent" }), undefined);
 
-  const secondReply = await store.reply(reply.id, { body: "Follow-up", author: "Human", source: "human" });
+  const secondReply = await store.reply(reply.id, { line: 7, body: "Follow-up", author: "Human", source: "human" });
   assert.ok(secondReply);
   assert.equal(secondReply.parentId, ids.root);
   assert.deepEqual(store.thread(ids.root).map(item => item.id), [ids.root, reply.id, secondReply.id]);
+
+  assert.equal(await store.setThreadRange(secondReply.id, {
+    start: { line: 9, character: 1 },
+    end: { line: 10, character: 2 }
+  }), true);
+  assert.deepEqual(store.thread(ids.root).map(item => item.range), [
+    { start: { line: 9, character: 1 }, end: { line: 10, character: 2 } },
+    { start: { line: 9, character: 1 }, end: { line: 10, character: 2 } },
+    { start: { line: 9, character: 1 }, end: { line: 10, character: 2 } }
+  ]);
+  assert.equal(await store.setThreadRange(ids.root, store.thread(ids.root)[0].range), false);
 
   assert.deepEqual(await store.remove(ids.root), { removed: 3, remainingComments: 0 });
   assert.deepEqual(persisted, []);
@@ -139,7 +156,7 @@ test("filters threads whose latest comment is from the agent", async () => {
   assert.deepEqual(store.visibleThreadRoots().map(item => item.id), [ids.two]);
   assert.deepEqual(changes, [{ showAgentLastOnly: true }]);
 
-  await store.reply(ids.two, { body: "One more question", author: "Human", source: "human" });
+  await store.reply(ids.two, { line: 2, body: "One more question", author: "Human", source: "human" });
   assert.deepEqual(store.visibleThreadRoots(), []);
 });
 

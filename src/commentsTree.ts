@@ -14,7 +14,7 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
 
   constructor(private readonly store: CommentStore) {
     this.subscription = store.onDidChange(change => {
-      if (change.comments || change.showAgentLastOnly) this.changed.fire(undefined);
+      if (change.comments || change.threadRanges || change.showAgentLastOnly) this.changed.fire(undefined);
     });
   }
 
