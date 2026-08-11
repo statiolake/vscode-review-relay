@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.12
+
+- Run native comments in the remote workspace host and pass the remote API endpoint explicitly to the CLI.
+
 ## 0.1.11
 
 - Use VS Code theme colors for the Options checkbox.
