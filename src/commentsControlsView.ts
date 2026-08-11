@@ -49,12 +49,17 @@ export class CommentsControlsViewProvider implements vscode.WebviewViewProvider,
   body { margin: 0; padding: 12px; color: var(--vscode-foreground); font: var(--vscode-font-size)/1.4 var(--vscode-font-family); }
   main { display: grid; gap: 12px; }
   label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
-  input { margin: 0; }
+  .checkbox { position: relative; width: 14px; height: 14px; flex: 0 0 14px; }
+  .checkbox-input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .checkbox-control { display: block; width: 14px; height: 14px; border: 1px solid var(--vscode-checkbox-border); border-radius: 2px; background: var(--vscode-checkbox-background); }
+  .checkbox-input:checked + .checkbox-control { border-color: var(--vscode-checkbox-background); }
+  .checkbox-input:checked + .checkbox-control::after { content: ""; display: block; width: 4px; height: 8px; margin: 1px 0 0 4px; border: solid var(--vscode-checkbox-foreground); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .checkbox-input:focus-visible + .checkbox-control { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
   button { width: 100%; border: 0; border-radius: 2px; padding: 7px 10px; cursor: pointer; color: var(--vscode-button-foreground); background: var(--vscode-button-background); font: inherit; }
   button:hover { background: var(--vscode-button-hoverBackground); }
-`,
+      `,
       body: `<main>
-  <label><input id="showAgentLastOnly" type="checkbox"> Show only threads last answered by AI</label>
+  <label><span class="checkbox"><input id="showAgentLastOnly" class="checkbox-input" type="checkbox"><span class="checkbox-control" aria-hidden="true"></span></span> Show only threads last answered by AI</label>
   <button id="copyAgent">Copy Agent Instructions</button>
 </main>`,
       script: `
