@@ -17,7 +17,7 @@ Comments are also shown inline through VS Code's native Comments UI. You can rep
 
 Use **Copy Agent Instructions** in **Options** and paste the result into your agent chat. The instructions contain the current workspace, connection details, complete interface, and ready-to-run commands.
 
-Review Relay includes a dependency-free CLI for macOS, Linux, and Windows. The extension and its loopback server run on the local UI host, including when VS Code is connected to a Dev Container, SSH host, or WSL workspace. Local workspaces are discovered from their path; copied agent instructions use the explicit local endpoint for remote workspaces.
+Review Relay includes a dependency-free CLI for macOS, Linux, and Windows. In remote workspaces, the extension and its loopback server run in the workspace host so native comments work in the remote editor. Copied agent instructions pass the workspace-local endpoint explicitly to the CLI. VS Code also provides a forwarded endpoint for tools running on the local UI host.
 
 Agents can:
 
@@ -40,7 +40,7 @@ If saved workspace data is corrupted, Review Relay stops before rendering it and
 
 ## CLI and API
 
-The copied Agent Instructions are the recommended reference because they include the live executable path and endpoint. The core CLI commands are:
+The copied Agent Instructions are the recommended reference because they include the live executable path and the endpoint appropriate for the CLI environment. The core CLI commands are:
 
 ```text
 review-relay comments list

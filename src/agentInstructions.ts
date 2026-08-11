@@ -5,6 +5,7 @@ export interface AgentWorkspaceFolder {
 
 export interface AgentInstructionsContext {
   endpoint: string;
+  cliEndpoint?: string;
   cliPath: string;
   workspaceFolders: readonly AgentWorkspaceFolder[];
 }
@@ -14,15 +15,31 @@ export function createAgentInstructions(context: AgentInstructionsContext): stri
     ? context.workspaceFolders.map(folder => `- ${folder.uri}`).join("\n")
     : "- No workspace folder is currently open. Use an absolute file URI from the editor.";
   const localWorkspace = context.workspaceFolders.find(folder => folder.localPath);
+  const cliEndpoint = context.cliEndpoint ?? context.endpoint;
   const cliTarget = localWorkspace
     ? `--workspace "${localWorkspace.localPath}"`
-    : `--endpoint ${context.endpoint}`;
+    : `--endpoint ${cliEndpoint}`;
+
+  const cliSection = `## CLI
+
+Prefer the bundled CLI. It has no runtime dependencies. Run it in the same environment as the workspace. Local workspaces discover this VS Code session from the workspace path; remote workspaces use the explicit CLI endpoint below.
+
+\`\`\`sh
+"${context.cliPath}" ${cliTarget} health
+"${context.cliPath}" ${cliTarget} comments list
+"${context.cliPath}" ${cliTarget} navigate --comment COMMENT_ID
+"${context.cliPath}" ${cliTarget} comments add --uri DOCUMENT_URI --line 12 --body 'Should this error be propagated?' --author Agent
+"${context.cliPath}" ${cliTarget} comments reply COMMENT_ID --line 12 --body 'Yes. I updated the caller as well.' --author Agent
+\`\`\`
+
+Available commands are \`health\`, \`comments list\`, \`comments add\`, \`comments reply\`, \`comments remove\`, \`comments clear\`, and \`navigate\`. Use \`--help\` for the complete syntax. The CLI prints the API JSON response to stdout and errors to stderr.`;
 
   return `# Review Relay live review comments
 
 This VS Code session exposes live review comments to local tools. Use this interface while working on the user's code. Comments written by the user in VS Code and comments written through this API share one live store.
 
 Endpoint: ${context.endpoint}
+CLI endpoint: ${cliEndpoint}
 CLI executable: ${context.cliPath}
 
 Open workspace folders:
@@ -37,19 +54,7 @@ ${workspaces}
 5. Do not delete comments unless the user explicitly asks you to. Never clear all comments without explicit confirmation.
 6. If the CLI or endpoint cannot connect, ask the user to run **Review Relay: Copy Agent Instructions** again and paste the fresh instructions. The endpoint can change when VS Code restarts.
 
-## CLI
-
-Prefer the bundled CLI. It has no runtime dependencies. Local workspaces discover this VS Code session from the workspace path. Remote workspaces such as Dev Containers use the explicit local \`--endpoint\` because their workspace paths do not exist on the UI host.
-
-\`\`\`sh
-"${context.cliPath}" ${cliTarget} health
-"${context.cliPath}" ${cliTarget} comments list
-"${context.cliPath}" ${cliTarget} navigate --comment COMMENT_ID
-"${context.cliPath}" ${cliTarget} comments add --uri DOCUMENT_URI --line 12 --body 'Should this error be propagated?' --author Agent
-"${context.cliPath}" ${cliTarget} comments reply COMMENT_ID --line 12 --body 'Yes. I updated the caller as well.' --author Agent
-\`\`\`
-
-Available commands are \`health\`, \`comments list\`, \`comments add\`, \`comments reply\`, \`comments remove\`, \`comments clear\`, and \`navigate\`. Use \`--help\` for the complete syntax. The CLI prints the API JSON response to stdout and errors to stderr.
+${cliSection}
 
 ## HTTP interface
 

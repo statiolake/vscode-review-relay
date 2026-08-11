@@ -19,7 +19,7 @@
   "categories": ["Other"],
   "activationEvents": ["onStartupFinished"],
   "main": "./dist/extension.js",
-  "extensionKind": ["ui"],
+  "extensionKind": ["workspace"],
   "contributes": {
     "viewsContainers": {
       "activitybar": [

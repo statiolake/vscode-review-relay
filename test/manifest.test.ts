@@ -13,8 +13,8 @@ interface Manifest {
 
 const manifest = JSON.parse(readFileSync("package.json", "utf8")) as Manifest;
 
-test("runs in the local UI extension host", () => {
-  assert.deepEqual(manifest.extensionKind, ["ui"]);
+test("runs in the workspace extension host", () => {
+  assert.deepEqual(manifest.extensionKind, ["workspace"]);
 });
 
 test("offers comment ID copying in the tree and native comment UI", () => {

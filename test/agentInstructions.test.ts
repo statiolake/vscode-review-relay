@@ -28,16 +28,21 @@ test("agent instructions contain the live endpoint, workspace and complete inter
   assert.match(instructions, /Copy Agent Instructions.*again/);
 });
 
-test("remote workspaces connect through the UI host endpoint", () => {
+test("remote workspaces use the CLI with an explicit workspace endpoint", () => {
   const instructions = createAgentInstructions({
     endpoint: "http://127.0.0.1:49123",
-    cliPath: "/extension/bin/darwin-arm64/review-relay",
+    cliEndpoint: "http://127.0.0.1:49124",
+    cliPath: "/extension/bin/linux-amd64/review-relay",
     workspaceFolders: [{
       uri: "vscode-remote://dev-container%2Brepro/workspaces/repro"
     }]
   });
 
-  assert.match(instructions, /--endpoint http:\/\/127\.0\.0\.1:49123 comments list/);
+  assert.match(instructions, /Endpoint: http:\/\/127\.0\.0\.1:49123/);
+  assert.match(instructions, /CLI endpoint: http:\/\/127\.0\.0\.1:49124/);
+  assert.match(instructions, /CLI executable: \/extension\/bin\/linux-amd64\/review-relay/);
+  assert.match(instructions, /--endpoint http:\/\/127\.0\.0\.1:49124 comments list/);
   assert.doesNotMatch(instructions, /--workspace/);
   assert.match(instructions, /vscode-remote:\/\/dev-container/);
+  assert.match(instructions, /curl -fsS http:\/\/127\.0\.0\.1:49123\/health/);
 });

@@ -32,7 +32,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     return;
   }
 
-  const endpoint = `http://127.0.0.1:${port}`;
+  const cliEndpoint = `http://127.0.0.1:${port}`;
+  const endpoint = (await vscode.env.asExternalUri(vscode.Uri.parse(cliEndpoint))).toString();
   const session = new SessionRegistration(endpoint);
   const workspaceFolders = (): AgentWorkspaceFolder[] => (vscode.workspace.workspaceFolders ?? [])
     .map(folder => ({
@@ -59,6 +60,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const copyAgentInstructions = async () => {
     const instructions = createAgentInstructions({
       endpoint,
+      cliEndpoint,
       cliPath,
       workspaceFolders: workspaceFolders()
     });
