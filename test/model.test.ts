@@ -72,8 +72,7 @@ test("strictly rejects unknown input fields and invalid ranges", () => {
 test("validates the complete persisted state including thread invariants", () => {
   const valid = {
     comments: [validComment],
-    overall: "",
-    showAgentLastOnly: false
+    overall: ""
   };
   assert.deepEqual(validateReviewRelayState(valid), valid);
 
@@ -122,8 +121,8 @@ test("normalizes legacy nested replies into one ordered thread", () => {
     includeAiGenerated: true
   });
 
-  assert.equal(state.showAgentLastOnly, false);
   assert.equal("includeAiGenerated" in state, false);
+  assert.equal("showAgentLastOnly" in state, false);
   assert.deepEqual(state.comments.map(comment => comment.parentId), [
     undefined,
     validComment.id,

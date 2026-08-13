@@ -9,13 +9,13 @@ Add comments to code with VS Code's native comment UI. Agents can read them, rep
 1. Install **Review Relay** from the VS Code Marketplace.
 2. Open a project and select a line or range.
 3. Run **Review Relay: Add Comment** from the Command Palette or editor context menu.
-4. Open the Review Relay icon in the Activity Bar to browse comments and add an overall review.
+4. Open the Review Relay icon in the Activity Bar to add an overall review and copy agent instructions.
 
-Comments are also shown inline through VS Code's native Comments UI. You can reply to, edit, or delete any Review Relay comment there.
+Comments are shown through VS Code's native Comments UI. Use its resolved-comments filter to focus on threads awaiting the next response; reply, edit, or delete any Review Relay comment there.
 
 ## Connect a coding agent
 
-Use **Copy Agent Instructions** in **Options** and paste the result into your agent chat. The instructions contain the current workspace, connection details, complete interface, and ready-to-run commands.
+Use **Copy Agent Instructions** in the **Review** view and paste the result into your agent chat. The instructions contain the current workspace, connection details, complete interface, and ready-to-run commands.
 
 Review Relay includes a dependency-free CLI for macOS, Linux, and Windows. In remote workspaces, the extension and its loopback server run in the workspace host so native comments work in the remote editor. Copied agent instructions pass the workspace-local endpoint explicitly to the CLI. VS Code also provides a forwarded endpoint for tools running on the local UI host.
 

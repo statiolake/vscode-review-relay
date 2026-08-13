@@ -101,18 +101,6 @@ export class VsCodeComments implements vscode.Disposable {
     await this.store.remove(comment.reviewRelayId);
   }
 
-  expandThread(commentId: string): void {
-    const rootId = this.store.rootId(commentId);
-    const thread = rootId ? this.threads.get(rootId) : undefined;
-    if (thread) thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
-  }
-
-  currentRange(commentId: string): ReviewComment["range"] | undefined {
-    const rootId = this.store.rootId(commentId);
-    const range = rootId ? this.threads.get(rootId)?.range : undefined;
-    return range ? toReviewRange(range) : undefined;
-  }
-
   private queueRangeSync(uri: vscode.Uri): void {
     this.rangeSync = this.rangeSync
       .catch(() => undefined)
@@ -149,6 +137,7 @@ export class VsCodeComments implements vscode.Disposable {
         } else if (updateRanges) {
           existing.range = range;
         }
+        existing.state = stateFor(comments);
       } else {
         const thread = this.controller.createCommentThread(
           vscode.Uri.parse(root.uri),
@@ -158,6 +147,7 @@ export class VsCodeComments implements vscode.Disposable {
         thread.reviewRelayId = root.id;
         thread.contextValue = "review-relay";
         thread.canReply = true;
+        thread.state = stateFor(comments);
         this.threads.set(root.id, thread);
         this.threadModels.set(root.id, comments);
       }
@@ -208,6 +198,12 @@ function toReviewRange(range: vscode.Range): ReviewComment["range"] {
     start: { line: range.start.line, character: range.start.character },
     end: { line: range.end.line, character: range.end.character }
   };
+}
+
+function stateFor(comments: readonly ReviewComment[]): vscode.CommentThreadState {
+  return comments.at(-1)?.source === "human"
+    ? vscode.CommentThreadState.Resolved
+    : vscode.CommentThreadState.Unresolved;
 }
 
 function sameComments(

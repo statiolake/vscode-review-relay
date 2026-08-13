@@ -17,21 +17,17 @@ test("runs in the workspace extension host", () => {
   assert.deepEqual(manifest.extensionKind, ["workspace"]);
 });
 
-test("offers comment ID copying in the tree and native comment UI", () => {
+test("offers comment ID copying in the native comment UI", () => {
   assert.ok(manifest.contributes?.commands?.some(item => item.command === "reviewRelay.copyCommentId"));
-  for (const menu of ["view/item/context", "comments/comment/title"]) {
-    assert.ok(manifest.contributes?.menus?.[menu]?.some(item => item.command === "reviewRelay.copyCommentId"), menu);
-  }
+  assert.ok(manifest.contributes?.menus?.["comments/comment/title"]?.some(item => item.command === "reviewRelay.copyCommentId"));
 });
 
-test("separates comment controls from the review editor", () => {
+test("keeps review controls in one panel", () => {
   assert.deepEqual(manifest.contributes?.views?.reviewRelay?.map(view => ({
     id: view.id,
     name: view.name,
     type: view.type
   })), [
-    { id: "reviewRelay.comments", name: "Comments", type: undefined },
-    { id: "reviewRelay.commentsControls", name: "Options", type: "webview" },
     { id: "reviewRelay.review", name: "Review", type: "webview" }
   ]);
 });

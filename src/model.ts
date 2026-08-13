@@ -89,8 +89,7 @@ const navigateSchema = z.union([navigateByCommentSchema, navigateByLocationSchem
 
 export const reviewRelayStateSchema = z.strictObject({
   comments: z.array(reviewCommentSchema),
-  overall: z.string().max(MAX_OVERALL_LENGTH, `overall must not exceed ${MAX_OVERALL_LENGTH} characters.`),
-  showAgentLastOnly: z.boolean().default(false)
+  overall: z.string().max(MAX_OVERALL_LENGTH, `overall must not exceed ${MAX_OVERALL_LENGTH} characters.`)
 }).superRefine((state, context) => {
   const byId = new Map<string, ReviewComment>();
   for (const [index, comment] of state.comments.entries()) {
@@ -174,12 +173,8 @@ export function validateOverall(value: unknown): string {
   return z.string().max(MAX_OVERALL_LENGTH, `overall must not exceed ${MAX_OVERALL_LENGTH} characters.`).parse(value);
 }
 
-export function validateShowAgentLastOnly(value: unknown): boolean {
-  return z.boolean().parse(value);
-}
-
 export function validateReviewRelayState(value: unknown): ReviewRelayState {
-  const state = reviewRelayStateSchema.parse(withoutLegacyExportPreference(value));
+  const state = reviewRelayStateSchema.parse(withoutLegacyPreferences(value));
   const byId = new Map(state.comments.map(comment => [comment.id, comment]));
   return {
     ...state,
@@ -192,9 +187,13 @@ export function validateReviewRelayState(value: unknown): ReviewRelayState {
   };
 }
 
-function withoutLegacyExportPreference(value: unknown): unknown {
+function withoutLegacyPreferences(value: unknown): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
-  const { includeAiGenerated: _legacy, ...state } = value as Record<string, unknown>;
+  const {
+    includeAiGenerated: _legacyExportPreference,
+    showAgentLastOnly: _legacyThreadFilter,
+    ...state
+  } = value as Record<string, unknown>;
   return state;
 }
 

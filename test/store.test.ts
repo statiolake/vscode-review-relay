@@ -126,38 +126,23 @@ test("persists overall review text without the legacy AI export preference", asy
   assert.equal(store.getOverall(), "Check the error-handling strategy.");
   assert.deepEqual(saved, {
     comments: [],
-    overall: "Check the error-handling strategy.",
-    showAgentLastOnly: false
+    overall: "Check the error-handling strategy."
   });
 });
 
-test("filters threads whose latest comment is from the agent", async () => {
-  const humanLast = comment(ids.one, "Waiting for AI");
-  const agentLast = comment(ids.two, "Please investigate");
-  const agentReply = {
-    ...comment(ids.first, "Handled"),
-    parentId: ids.two,
-    author: "Codex",
-    source: "agent" as const
-  };
+test("migrates the legacy thread filter out of persisted state", async () => {
+  let persisted: ReviewRelayState | undefined;
   const store = new CommentStore({
     load: () => ({
-      comments: [humanLast, agentLast, agentReply],
-      overall: ""
+      comments: [],
+      overall: "",
+      showAgentLastOnly: true
     }),
-    save: async () => undefined
+    save: async state => { persisted = state; }
   });
-  const changes: CommentStoreChange[] = [];
-  store.onDidChange(change => changes.push(change));
 
-  assert.deepEqual(store.visibleThreadRoots().map(item => item.id), [ids.one, ids.two]);
-  await store.setShowAgentLastOnly(true);
-  assert.equal(store.showsAgentLastOnly(), true);
-  assert.deepEqual(store.visibleThreadRoots().map(item => item.id), [ids.two]);
-  assert.deepEqual(changes, [{ showAgentLastOnly: true }]);
-
-  await store.reply(ids.two, { line: 2, body: "One more question", author: "Human", source: "human" });
-  assert.deepEqual(store.visibleThreadRoots(), []);
+  await store.setOverall("No custom thread filter remains.");
+  assert.deepEqual(persisted, { comments: [], overall: "No custom thread filter remains." });
 });
 
 test("reports which part of the state changed", async () => {

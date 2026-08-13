@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Use VS Code's native resolved-comment state to distinguish human- and agent-last threads, and consolidate the Review controls into one panel.
+
 ## 0.1.12
 
 - Run native comments in the remote workspace host and pass the remote API endpoint explicitly to the CLI.

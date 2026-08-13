@@ -21,5 +21,5 @@ export function resetWorkspaceData(storage: WorkspaceMemento): PromiseLike<void>
 }
 
 function emptyState(): ReviewRelayState {
-  return { comments: [], overall: "", showAgentLastOnly: false };
+  return { comments: [], overall: "" };
 }

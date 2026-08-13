@@ -28,8 +28,6 @@
     },
     "views": {
       "reviewRelay": [
-        { "id": "reviewRelay.comments", "name": "Comments" },
-        { "id": "reviewRelay.commentsControls", "name": "Options", "type": "webview" },
         { "id": "reviewRelay.review", "name": "Review", "type": "webview" }
       ]
     },
@@ -46,9 +44,7 @@
       { "command": "reviewRelay.copyAgentInstructions", "title": "Review Relay: Copy Agent Instructions" },
       { "command": "reviewRelay.copyMarkdown", "title": "Review Relay: Copy as Markdown", "icon": "$(clippy)" },
       { "command": "reviewRelay.clearReview", "title": "Review Relay: Clear Review", "icon": "$(clear-all)" },
-      { "command": "reviewRelay.clearComments", "title": "Review Relay: Clear All Comments" },
-      { "command": "reviewRelay.navigateTreeComment", "title": "Reveal Comment" },
-      { "command": "reviewRelay.deleteTreeComment", "title": "Delete Comment", "icon": "$(trash)" }
+      { "command": "reviewRelay.clearComments", "title": "Review Relay: Clear All Comments" }
     ],
     "menus": {
       "commandPalette": [
@@ -58,9 +54,7 @@
         { "command": "reviewRelay.saveComment", "when": "false" },
         { "command": "reviewRelay.cancelEditComment", "when": "false" },
         { "command": "reviewRelay.deleteComment", "when": "false" },
-        { "command": "reviewRelay.copyCommentId", "when": "false" },
-        { "command": "reviewRelay.navigateTreeComment", "when": "false" },
-        { "command": "reviewRelay.deleteTreeComment", "when": "false" }
+        { "command": "reviewRelay.copyCommentId", "when": "false" }
       ],
       "editor/context": [
         { "command": "reviewRelay.addComment", "group": "navigation@50", "when": "editorTextFocus" }
@@ -77,10 +71,6 @@
       "comments/comment/context": [
         { "command": "reviewRelay.saveComment", "group": "inline@1", "when": "commentController == review-relay && comment == editing" },
         { "command": "reviewRelay.cancelEditComment", "group": "inline@2", "when": "commentController == review-relay && comment == editing" }
-      ],
-      "view/item/context": [
-        { "command": "reviewRelay.copyCommentId", "group": "inline@1", "when": "view == reviewRelay.comments && viewItem == reviewRelayComment" },
-        { "command": "reviewRelay.deleteTreeComment", "group": "inline@2", "when": "view == reviewRelay.comments && viewItem == reviewRelayComment" }
       ]
     }
   },
