@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.13
 
 - Use VS Code's native resolved-comment state to distinguish human- and agent-last threads, and consolidate the Review controls into one panel.
 
