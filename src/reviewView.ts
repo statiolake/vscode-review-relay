@@ -46,13 +46,14 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
     return renderWebviewDocument(webview, {
       styles: `
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body { margin: 0; padding: 12px; color: var(--vscode-foreground); font: var(--vscode-font-size)/1.4 var(--vscode-font-family); }
-  main { display: grid; gap: 20px; }
-  section { display: grid; gap: 8px; }
+  main { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 20px; height: 100%; min-height: 0; }
+  section { display: grid; gap: 8px; min-height: 0; }
+  section:first-child { grid-template-rows: auto minmax(0, 1fr) auto; }
   section + section { padding-top: 12px; border-top: 1px solid var(--vscode-widget-border, transparent); }
   h2 { margin: 0; font-size: 13px; font-weight: 600; }
-  p { margin: 0; color: var(--vscode-descriptionForeground); font-size: 12px; line-height: 1.45; }
-  textarea { width: 100%; height: 132px; min-height: 112px; resize: vertical; padding: 8px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); font: var(--vscode-editor-font-size) var(--vscode-editor-font-family); }
+  textarea { width: 100%; min-height: 0; resize: none; padding: 8px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border, transparent); font: var(--vscode-editor-font-size) var(--vscode-editor-font-family); }
   textarea:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
   button { width: 100%; border: 0; border-radius: 2px; padding: 7px 10px; cursor: pointer; color: var(--vscode-button-foreground); background: var(--vscode-button-background); font: inherit; }
   button:hover { background: var(--vscode-button-hoverBackground); }
@@ -67,7 +68,6 @@ export class ReviewViewProvider implements vscode.WebviewViewProvider, vscode.Di
   </section>
   <section>
     <h2>Options</h2>
-    <p>Use the native Comments panel to show or hide resolved threads. Agent replies keep a thread unresolved; a human reply resolves it.</p>
     <button class="secondary" id="copyAgent">Copy Agent Instructions</button>
   </section>
 </main>`,
