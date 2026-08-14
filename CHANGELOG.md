@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.14
+
+- Let the Overall Comment editor fill the available Review panel height and remove redundant Options guidance.
+
 ## 0.1.13
 
 - Use VS Code's native resolved-comment state to distinguish human- and agent-last threads, and consolidate the Review controls into one panel.
