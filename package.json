@@ -2,7 +2,7 @@
   "name": "vscode-review-relay",
   "displayName": "Review Relay",
   "description": "Live review comments shared between VS Code and local AI tools.",
-  "version": "0.1.14",
+  "version": "0.2.0",
   "publisher": "statiolake",
   "license": "MIT",
   "author": "statiolake",
@@ -14,76 +14,199 @@
   "bugs": {
     "url": "https://github.com/statiolake/vscode-review-relay/issues"
   },
-  "keywords": ["review", "comments", "coding agent", "AI", "diff"],
-  "engines": { "vscode": "^1.96.0" },
-  "categories": ["Other"],
-  "activationEvents": ["onStartupFinished"],
+  "keywords": [
+    "review",
+    "comments",
+    "coding agent",
+    "AI",
+    "diff"
+  ],
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
-  "extensionKind": ["workspace"],
+  "extensionKind": [
+    "workspace"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
-        { "id": "reviewRelay", "title": "Review Relay", "icon": "media/icon.svg" }
+        {
+          "id": "reviewRelay",
+          "title": "Review Relay",
+          "icon": "media/icon.svg"
+        }
       ]
     },
     "views": {
       "reviewRelay": [
-        { "id": "reviewRelay.review", "name": "Review", "type": "webview" }
+        {
+          "id": "reviewRelay.review",
+          "name": "Review",
+          "type": "webview"
+        }
       ]
     },
     "commands": [
-      { "command": "reviewRelay.addComment", "title": "Review Relay: Add Comment" },
-      { "command": "reviewRelay.editComment", "title": "Edit", "icon": "$(edit)" },
-      { "command": "reviewRelay.saveComment", "title": "Save", "icon": "$(check)" },
-      { "command": "reviewRelay.cancelEditComment", "title": "Cancel", "icon": "$(close)" },
-      { "command": "reviewRelay.deleteComment", "title": "Delete", "icon": "$(trash)" },
-      { "command": "reviewRelay.copyCommentId", "title": "Copy Comment ID", "icon": "$(copy)" },
-      { "command": "reviewRelay.submitComment", "title": "Add Comment" },
-      { "command": "reviewRelay.replyComment", "title": "Reply" },
-      { "command": "reviewRelay.copyEndpoint", "title": "Review Relay: Copy API Endpoint" },
-      { "command": "reviewRelay.copyAgentInstructions", "title": "Review Relay: Copy Agent Instructions" },
-      { "command": "reviewRelay.copyMarkdown", "title": "Review Relay: Copy as Markdown", "icon": "$(clippy)" },
-      { "command": "reviewRelay.clearReview", "title": "Review Relay: Clear Review", "icon": "$(clear-all)" },
-      { "command": "reviewRelay.clearComments", "title": "Review Relay: Clear All Comments" }
+      {
+        "command": "reviewRelay.addComment",
+        "title": "Review Relay: Add Comment"
+      },
+      {
+        "command": "reviewRelay.editComment",
+        "title": "Edit",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "reviewRelay.saveComment",
+        "title": "Save",
+        "icon": "$(check)"
+      },
+      {
+        "command": "reviewRelay.cancelEditComment",
+        "title": "Cancel",
+        "icon": "$(close)"
+      },
+      {
+        "command": "reviewRelay.deleteComment",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "reviewRelay.copyCommentId",
+        "title": "Copy Comment ID",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "reviewRelay.submitComment",
+        "title": "Add Comment"
+      },
+      {
+        "command": "reviewRelay.replyComment",
+        "title": "Reply"
+      },
+      {
+        "command": "reviewRelay.copyEndpoint",
+        "title": "Review Relay: Copy API Endpoint"
+      },
+      {
+        "command": "reviewRelay.copyAgentInstructions",
+        "title": "Review Relay: Copy Agent Instructions"
+      },
+      {
+        "command": "reviewRelay.copyMarkdown",
+        "title": "Review Relay: Copy as Markdown",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "reviewRelay.clearReview",
+        "title": "Review Relay: Clear Review",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "reviewRelay.clearComments",
+        "title": "Review Relay: Clear All Comments"
+      }
     ],
     "menus": {
       "commandPalette": [
-        { "command": "reviewRelay.submitComment", "when": "false" },
-        { "command": "reviewRelay.replyComment", "when": "false" },
-        { "command": "reviewRelay.editComment", "when": "false" },
-        { "command": "reviewRelay.saveComment", "when": "false" },
-        { "command": "reviewRelay.cancelEditComment", "when": "false" },
-        { "command": "reviewRelay.deleteComment", "when": "false" },
-        { "command": "reviewRelay.copyCommentId", "when": "false" }
+        {
+          "command": "reviewRelay.submitComment",
+          "when": "false"
+        },
+        {
+          "command": "reviewRelay.replyComment",
+          "when": "false"
+        },
+        {
+          "command": "reviewRelay.editComment",
+          "when": "false"
+        },
+        {
+          "command": "reviewRelay.saveComment",
+          "when": "false"
+        },
+        {
+          "command": "reviewRelay.cancelEditComment",
+          "when": "false"
+        },
+        {
+          "command": "reviewRelay.deleteComment",
+          "when": "false"
+        },
+        {
+          "command": "reviewRelay.copyCommentId",
+          "when": "false"
+        }
       ],
       "editor/context": [
-        { "command": "reviewRelay.addComment", "group": "navigation@50", "when": "editorTextFocus" }
+        {
+          "command": "reviewRelay.addComment",
+          "group": "navigation@50",
+          "when": "editorTextFocus"
+        }
       ],
       "comments/commentThread/context": [
-        { "command": "reviewRelay.submitComment", "group": "inline", "when": "commentController == review-relay && commentThreadIsEmpty" },
-        { "command": "reviewRelay.replyComment", "group": "inline", "when": "commentController == review-relay && !commentThreadIsEmpty" }
+        {
+          "command": "reviewRelay.submitComment",
+          "group": "inline",
+          "when": "commentController == review-relay && commentThreadIsEmpty"
+        },
+        {
+          "command": "reviewRelay.replyComment",
+          "group": "inline",
+          "when": "commentController == review-relay && !commentThreadIsEmpty"
+        }
       ],
       "comments/comment/title": [
-        { "command": "reviewRelay.copyCommentId", "group": "inline@1", "when": "commentController == review-relay && comment == preview" },
-        { "command": "reviewRelay.editComment", "group": "inline@2", "when": "commentController == review-relay && comment == preview" },
-        { "command": "reviewRelay.deleteComment", "group": "inline@3", "when": "commentController == review-relay && comment == preview" }
+        {
+          "command": "reviewRelay.copyCommentId",
+          "group": "inline@1",
+          "when": "commentController == review-relay && comment == preview"
+        },
+        {
+          "command": "reviewRelay.editComment",
+          "group": "inline@2",
+          "when": "commentController == review-relay && comment == preview"
+        },
+        {
+          "command": "reviewRelay.deleteComment",
+          "group": "inline@3",
+          "when": "commentController == review-relay && comment == preview"
+        }
       ],
       "comments/comment/context": [
-        { "command": "reviewRelay.saveComment", "group": "inline@1", "when": "commentController == review-relay && comment == editing" },
-        { "command": "reviewRelay.cancelEditComment", "group": "inline@2", "when": "commentController == review-relay && comment == editing" }
+        {
+          "command": "reviewRelay.saveComment",
+          "group": "inline@1",
+          "when": "commentController == review-relay && comment == editing"
+        },
+        {
+          "command": "reviewRelay.cancelEditComment",
+          "group": "inline@2",
+          "when": "commentController == review-relay && comment == editing"
+        }
       ]
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run check && npm run build:cli:all && esbuild src/extension.ts --bundle --platform=node --external:vscode --outfile=dist/extension.js",
+    "vscode:prepublish": "npm run check && npm run build:cli:all && esbuild src/extension.ts --bundle --minify --platform=node --external:vscode --outfile=dist/extension.js",
     "build": "npm run build:cli && esbuild src/extension.ts --bundle --platform=node --external:vscode --outfile=dist/extension.js",
     "build:cli": "node scripts/build-cli.mjs",
     "build:cli:all": "node scripts/build-cli.mjs --all",
     "package": "vsce package",
-    "publish": "vsce publish",
+    "publish": "npm run publish:vsce && npm run publish:ovsx",
     "check": "tsc --noEmit",
     "test": "npm run test:compile && node --test dist-test/test/**/*.test.js && go test ./...",
-    "test:compile": "tsc -p tsconfig.test.json"
+    "test:compile": "tsc -p tsconfig.test.json",
+    "publish:vsce": "vsce publish",
+    "publish:ovsx": "ovsx publish"
   },
   "dependencies": {
     "vscode-uri": "^3.1.0",
@@ -94,6 +217,7 @@
     "@types/vscode": "^1.96.0",
     "@vscode/vsce": "^3.9.1",
     "esbuild": "^0.24.2",
+    "ovsx": "^1.1.1",
     "typescript": "^5.7.2"
   }
 }

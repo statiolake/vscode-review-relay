@@ -1,13 +1,19 @@
-.vscode/**
-.gitignore
-.vscodeignore
-*.vsix
-cmd/**
-scripts/**
-src/**
-test/**
-dist-test/**
-node_modules/**
-tsconfig*.json
-go.mod
-package-lock.json
+# Everything is excluded by default; only what the extension needs at runtime
+# is added back below. This way a newly added file is never shipped by accident.
+**
+
+# --- Runtime artifacts (must ship) ---
+!dist/extension.js
+!bin/**/review-relay
+!bin/**/review-relay.exe
+!media/**
+
+# --- Marketplace metadata (must ship) ---
+!package.json
+!README.md
+!CHANGELOG.md
+!LICENSE
+
+# Re-exclude anything that could sneak in through the include patterns above.
+dist/**/*.map
+**/*.map
