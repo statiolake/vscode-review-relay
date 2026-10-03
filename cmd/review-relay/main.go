@@ -116,21 +116,22 @@ func runComments(c client, args []string) error {
 		return c.request(http.MethodPost, "/v1/comments", payload)
 	case "reply":
 		flags := flag.NewFlagSet("comments reply", flag.ContinueOnError)
+		uri := flags.String("uri", "", "current thread document URI")
 		line := flags.Int("line", -1, "zero-based current start line")
 		endLine := flags.Int("end-line", -1, "zero-based inclusive current end line")
 		body := flags.String("body", "", "reply body")
 		author := flags.String("author", "Agent", "reply author")
 		if len(args) < 2 {
-			return errors.New("comments reply requires a comment ID, --line, and --body")
+			return errors.New("comments reply requires a comment ID, --uri, --line, and --body")
 		}
 		commentID := args[1]
 		if err := flags.Parse(args[2:]); err != nil {
 			return err
 		}
-		if flags.NArg() != 0 || *line < 0 || *body == "" {
-			return errors.New("comments reply requires a comment ID, --line, and --body")
+		if flags.NArg() != 0 || *uri == "" || *line < 0 || *body == "" {
+			return errors.New("comments reply requires a comment ID, --uri, --line, and --body")
 		}
-		payload := map[string]any{"line": *line, "body": *body, "author": *author, "source": "agent"}
+		payload := map[string]any{"uri": *uri, "line": *line, "body": *body, "author": *author, "source": "agent"}
 		if *endLine >= 0 {
 			payload["endLine"] = *endLine
 		}
@@ -320,7 +321,7 @@ Commands:
   health
   comments list [--uri URI]
   comments add --uri URI --line N [--end-line N] --body TEXT [--author NAME]
-  comments reply COMMENT_ID --line N [--end-line N] --body TEXT [--author NAME]
+  comments reply COMMENT_ID --uri URI --line N [--end-line N] --body TEXT [--author NAME]
   comments remove COMMENT_ID
   comments clear
   navigate --comment COMMENT_ID

@@ -66,6 +66,7 @@ const createCommentSchema = z.strictObject({
 });
 
 const createReplySchema = z.strictObject({
+  uri: uriSchema,
   line: nonNegativeInteger,
   endLine: nonNegativeInteger.optional(),
   body: bodyInputSchema,

@@ -62,11 +62,13 @@ test("strictly rejects unknown input fields and invalid ranges", () => {
     unexpected: true
   }));
   assert.throws(() => validateCreateReply({ body: "Reply" }));
-  assert.deepEqual(validateCreateReply({ line: 4, body: "Reply" }), {
+  assert.throws(() => validateCreateReply({ line: 4, body: "Reply" }));
+  assert.deepEqual(validateCreateReply({ uri: "file:///repo/app.ts", line: 4, body: "Reply" }), {
+    uri: "file:///repo/app.ts",
     line: 4,
     body: "Reply"
   });
-  assert.throws(() => validateCreateReply({ line: 4, endLine: 3, body: "Reply" }));
+  assert.throws(() => validateCreateReply({ uri: "file:///repo/app.ts", line: 4, endLine: 3, body: "Reply" }));
 });
 
 test("validates the complete persisted state including thread invariants", () => {

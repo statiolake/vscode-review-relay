@@ -6,6 +6,7 @@ import { AgentWorkspaceFolder, createAgentInstructions } from "./agentInstructio
 import { VsCodeNavigationService } from "./navigation";
 import { renderReviewMarkdown } from "./markdown";
 import { ReviewViewProvider } from "./reviewView";
+import { CommentsTreeElement, CommentsTreeProvider } from "./commentsTree";
 import { SessionRegistration } from "./sessionRegistry";
 import { createWorkspacePersistence, resetWorkspaceData } from "./workspacePersistence";
 
@@ -53,6 +54,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const cliName = process.platform === "win32" ? "review-relay.exe" : "review-relay";
   const cliPath = context.asAbsolutePath(`bin/${cliPlatform}-${cliArch}/${cliName}`);
   const reviewView = new ReviewViewProvider(store);
+  const commentsTree = new CommentsTreeProvider(store);
   const copyAgentInstructions = async () => {
     const instructions = createAgentInstructions({
       endpoint,
@@ -72,6 +74,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     comments,
     reviewView,
+    commentsTree,
     status,
     { dispose: () => { void session.dispose(); void server.stop(); } },
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -82,6 +85,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerWebviewViewProvider(ReviewViewProvider.viewType, reviewView, {
       webviewOptions: { retainContextWhenHidden: true }
     }),
+    vscode.window.registerTreeDataProvider(CommentsTreeProvider.viewType, commentsTree),
     vscode.commands.registerCommand("reviewRelay.addComment", () => comments.addAtSelection()),
     vscode.commands.registerCommand("reviewRelay.submitComment", (reply: vscode.CommentReply) => comments.submit(reply)),
     vscode.commands.registerCommand("reviewRelay.replyComment", (reply: vscode.CommentReply) => comments.submit(reply)),
@@ -89,6 +93,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand("reviewRelay.saveComment", comment => comments.save(comment)),
     vscode.commands.registerCommand("reviewRelay.cancelEditComment", comment => comments.cancelEdit(comment)),
     vscode.commands.registerCommand("reviewRelay.deleteComment", comment => comments.remove(comment)),
+    vscode.commands.registerCommand("reviewRelay.deleteTreeComment", async (element: CommentsTreeElement) => {
+      if (!element || element.kind === "file") return;
+      await store.remove(element.id);
+    }),
+    vscode.commands.registerCommand("reviewRelay.navigateTreeComment", async (id: string) => {
+      const comment = store.list().find(candidate => candidate.id === id);
+      if (!comment) return;
+      try {
+        await navigation.navigate({ uri: comment.uri, line: comment.range.start.line,
+          endLine: comment.range.end.line, commentId: id }, "user");
+        comments.expandThread(id);
+      } catch (error) {
+        void vscode.window.showErrorMessage(`Review Relay could not open this comment's location: ${error instanceof Error ? error.message : error}`);
+      }
+    }),
     vscode.commands.registerCommand("reviewRelay.copyCommentId", async (target: unknown) => {
       const id = commentIdOf(target);
       if (!id || !store.list().some(comment => comment.id === id)) return;
@@ -123,6 +142,8 @@ export function deactivate(): void {}
 function commentIdOf(target: unknown): string | undefined {
   if (!target || typeof target !== "object") return undefined;
   if ("reviewRelayId" in target && typeof target.reviewRelayId === "string") return target.reviewRelayId;
+  if ("kind" in target && (target.kind === "thread" || target.kind === "comment")
+    && "id" in target && typeof target.id === "string") return target.id;
   return undefined;
 }
 

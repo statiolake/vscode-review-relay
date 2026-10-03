@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- Restore the Review Relay comment tree with direct deletion and ID copying, including comments whose files no longer exist. Show only replies beneath each root comment.
+- Use workspace-discovered CLI connections in local agent instructions, preserving explicit endpoints for remote workspaces.
+- Require a document URI for replies and move the entire conversation to the supplied URI and line range. Existing reply clients must add `uri` (CLI: `--uri`).
+
 ## 0.1.14
 
 - Let the Overall Comment editor fill the available Review panel height and remove redundant Options guidance.

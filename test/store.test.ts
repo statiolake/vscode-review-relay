@@ -68,20 +68,22 @@ test("stores replies in a thread and cascades deletion from their parent", async
   });
 
   const reply = await store.reply(ids.root, {
+    uri: "file:///repo/moved.ts",
     line: 7,
     body: "  Reply  ",
     author: "Codex",
     source: "agent"
   });
   assert.ok(reply);
+  assert.deepEqual(store.thread(ids.root).map(item => item.uri), ["file:///repo/moved.ts", "file:///repo/moved.ts"]);
   assert.equal(reply.parentId, ids.root);
   assert.equal(reply.body, "Reply");
   assert.equal(store.rootId(reply.id), ids.root);
   assert.deepEqual(store.thread(ids.root).map(item => item.range.start.line), [7, 7]);
   assert.deepEqual(store.thread(ids.root).map(item => item.id), [ids.root, reply.id]);
-  assert.equal(await store.reply(ids.missing, { line: 7, body: "No parent" }), undefined);
+  assert.equal(await store.reply(ids.missing, { uri: "file:///repo/app.ts", line: 7, body: "No parent" }), undefined);
 
-  const secondReply = await store.reply(reply.id, { line: 7, body: "Follow-up", author: "Human", source: "human" });
+  const secondReply = await store.reply(reply.id, { uri: "file:///repo/app.ts", line: 7, body: "Follow-up", author: "Human", source: "human" });
   assert.ok(secondReply);
   assert.equal(secondReply.parentId, ids.root);
   assert.deepEqual(store.thread(ids.root).map(item => item.id), [ids.root, reply.id, secondReply.id]);

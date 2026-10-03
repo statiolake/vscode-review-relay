@@ -2,7 +2,7 @@
   "name": "vscode-review-relay",
   "displayName": "Review Relay",
   "description": "Live review comments shared between VS Code and local AI tools.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "statiolake",
   "license": "MIT",
   "author": "statiolake",
@@ -46,6 +46,10 @@
     },
     "views": {
       "reviewRelay": [
+        {
+          "id": "reviewRelay.comments",
+          "name": "Comments"
+        },
         {
           "id": "reviewRelay.review",
           "name": "Review",
@@ -112,6 +116,15 @@
       {
         "command": "reviewRelay.clearComments",
         "title": "Review Relay: Clear All Comments"
+      },
+      {
+        "command": "reviewRelay.navigateTreeComment",
+        "title": "Reveal Comment"
+      },
+      {
+        "command": "reviewRelay.deleteTreeComment",
+        "title": "Delete Comment",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
@@ -142,6 +155,14 @@
         },
         {
           "command": "reviewRelay.copyCommentId",
+          "when": "false"
+        },
+        {
+          "command": "reviewRelay.navigateTreeComment",
+          "when": "false"
+        },
+        {
+          "command": "reviewRelay.deleteTreeComment",
           "when": "false"
         }
       ],
@@ -191,6 +212,28 @@
           "command": "reviewRelay.cancelEditComment",
           "group": "inline@2",
           "when": "commentController == review-relay && comment == editing"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "reviewRelay.copyCommentId",
+          "group": "inline@1",
+          "when": "view == reviewRelay.comments && viewItem == reviewRelayComment"
+        },
+        {
+          "command": "reviewRelay.deleteTreeComment",
+          "group": "inline@2",
+          "when": "view == reviewRelay.comments && viewItem == reviewRelayComment"
+        },
+        {
+          "command": "reviewRelay.copyCommentId",
+          "group": "navigation@1",
+          "when": "view == reviewRelay.comments && viewItem == reviewRelayComment"
+        },
+        {
+          "command": "reviewRelay.deleteTreeComment",
+          "group": "navigation@2",
+          "when": "view == reviewRelay.comments && viewItem == reviewRelayComment"
         }
       ]
     }

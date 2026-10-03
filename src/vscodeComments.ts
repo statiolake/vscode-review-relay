@@ -48,6 +48,7 @@ export class VsCodeComments implements vscode.Disposable {
     if (!text || !thread.range) return;
     if (thread.reviewRelayId) {
       await this.store.reply(thread.reviewRelayId, {
+        uri: thread.uri.toString(),
         line: thread.range.start.line,
         endLine: thread.range.end.line,
         body: text,
@@ -101,6 +102,12 @@ export class VsCodeComments implements vscode.Disposable {
     await this.store.remove(comment.reviewRelayId);
   }
 
+  expandThread(commentId: string): void {
+    const rootId = this.store.rootId(commentId);
+    const thread = rootId ? this.threads.get(rootId) : undefined;
+    if (thread) thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+  }
+
   private queueRangeSync(uri: vscode.Uri): void {
     this.rangeSync = this.rangeSync
       .catch(() => undefined)
@@ -127,7 +134,13 @@ export class VsCodeComments implements vscode.Disposable {
         root.range.start.line, root.range.start.character,
         root.range.end.line, root.range.end.character
       );
-      const existing = this.threads.get(root.id) as ThreadWithId | undefined;
+      let existing = this.threads.get(root.id) as ThreadWithId | undefined;
+      if (existing && existing.uri.toString() !== root.uri) {
+        existing.dispose();
+        this.threads.delete(root.id);
+        this.threadModels.delete(root.id);
+        existing = undefined;
+      }
       if (existing) {
         if (!sameComments(this.threadModels.get(root.id), comments)) {
           if (updateRanges) existing.range = range;

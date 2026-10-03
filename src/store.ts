@@ -74,7 +74,7 @@ export class CommentStore {
     const comment: ReviewComment = {
       id: randomUUID(),
       parentId: root.id,
-      uri: root.uri,
+      uri: input.uri,
       range,
       body: input.body.trim(),
       author: input.author?.trim() || (input.source === "human" ? "Human" : "AI"),
@@ -84,7 +84,7 @@ export class CommentStore {
     this.state = {
       ...this.state,
       comments: [
-        ...this.state.comments.map(item => thread.has(item.id) ? { ...item, range } : item),
+        ...this.state.comments.map(item => thread.has(item.id) ? { ...item, uri: input.uri, range } : item),
         comment
       ]
     };

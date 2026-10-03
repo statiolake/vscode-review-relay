@@ -11,7 +11,9 @@ Add comments to code with VS Code's native comment UI. Agents can read them, rep
 3. Run **Review Relay: Add Comment** from the Command Palette or editor context menu.
 4. Open the Review Relay icon in the Activity Bar to add an overall review and copy agent instructions.
 
-Comments are shown through VS Code's native Comments UI. Use its resolved-comments filter to focus on threads awaiting the next response; reply, edit, or delete any Review Relay comment there.
+Review Relay's **Comments** tree groups comments by file and thread. Click a row to open its location in the editor. Hover over a thread or comment for **Copy Comment ID** and **Delete Comment**, or use its right-click menu. Deleting a thread removes all replies; deleting a reply preserves the rest of the thread. These actions work even when the file has been moved or deleted.
+
+Inline comments also remain available through VS Code's native Comments UI.
 
 ## Connect a coding agent
 
@@ -45,7 +47,7 @@ The copied Agent Instructions are the recommended reference because they include
 ```text
 review-relay comments list
 review-relay comments add --uri URI --line N --body TEXT
-review-relay comments reply COMMENT_ID --line N [--end-line N] --body TEXT
+review-relay comments reply COMMENT_ID --uri URI --line N [--end-line N] --body TEXT
 review-relay comments remove COMMENT_ID
 review-relay comments clear
 review-relay navigate --comment COMMENT_ID
@@ -62,3 +64,5 @@ npm run build
 ```
 
 Press F5 in VS Code to launch an Extension Development Host. `npm run package` builds the cross-platform CLIs and creates a VSIX.
+
+Each reply must specify the current document URI and start line. The entire thread moves to that location, including across file renames. End line defaults to the start line.
