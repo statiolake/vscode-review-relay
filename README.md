@@ -13,7 +13,29 @@ Add comments to code with VS Code's native comment UI. Agents can read them, rep
 
 Review Relay's **Comments** tree groups comments by file and thread. Click a row to open its location in the editor. Hover over a thread or comment for **Copy Comment ID** and **Delete Comment**, or use its right-click menu. Deleting a thread removes all replies; deleting a reply preserves the rest of the thread. These actions work even when the file has been moved or deleted.
 
-Inline comments also remain available through VS Code's native Comments UI.
+Inline comments also remain available through VS Code's native Comments UI. Use **Resolve** in a thread's title bar when you are done with it (**Reopen** brings it back). Resolved threads fold away, use VS Code's native resolved state (so the Comments panel's resolved filter applies), and are skipped by agents and the Markdown export. Any new reply reopens a thread.
+
+## Keyboard commands
+
+These commands act on the thread covering the active editor's cursor line, so they can be bound to keys. When several threads (or comments) qualify, a numbered quick pick chooses one.
+
+| Command | Action |
+| --- | --- |
+| `reviewRelay.addComment` | Add a thread on the current line or selection |
+| `reviewRelay.replyAtCursor` | Open the thread and put the focus in its reply editor |
+| `reviewRelay.editAtCursor` | Edit a comment of the thread |
+| `reviewRelay.deleteCommentAtCursor` | Delete a comment, after confirmation (deleting the first comment deletes the thread) |
+| `reviewRelay.deleteThreadAtCursor` | Delete the whole thread, after confirmation |
+| `reviewRelay.toggleResolveAtCursor` | Resolve the thread, or reopen a resolved one |
+| `reviewRelay.toggleThreadAtCursor` | Show or hide the thread |
+
+`reviewRelay.replyComment`, `reviewRelay.editComment`, and `reviewRelay.deleteComment` behave the same way when run without the comment-widget argument. The `reviewRelay.cursorOnThread` context key is true while the cursor is on a thread, for use in keybinding `when` clauses:
+
+```json
+{ "key": "ctrl+k r", "command": "reviewRelay.replyAtCursor", "when": "editorTextFocus && reviewRelay.cursorOnThread" }
+```
+
+VS Code anchors a thread on its last line and has no stable API to focus a reply editor, so **Reply** briefly moves the cursor to that line to focus it. If another thread ending on the same line could take the focus instead, the reply is typed in an input box.
 
 ## Connect a coding agent
 
@@ -25,6 +47,7 @@ Agents can:
 
 - Read the overall review and all inline threads
 - Add and reply to comments
+- Resolve and reopen threads when asked, and list only unresolved ones
 - Navigate VS Code to a comment or source location
 - Delete comments when explicitly requested
 
@@ -45,15 +68,17 @@ If saved workspace data is corrupted, Review Relay stops before rendering it and
 The copied Agent Instructions are the recommended reference because they include the live executable path and the endpoint appropriate for the CLI environment. The core CLI commands are:
 
 ```text
-review-relay comments list
+review-relay comments list [--unresolved]
 review-relay comments add --uri URI --line N --body TEXT
 review-relay comments reply COMMENT_ID --uri URI --line N [--end-line N] --body TEXT
+review-relay comments resolve COMMENT_ID
+review-relay comments unresolve COMMENT_ID
 review-relay comments remove COMMENT_ID
 review-relay comments clear
 review-relay navigate --comment COMMENT_ID
 ```
 
-The HTTP API exposes the corresponding `/health`, `/v1/comments`, `/v1/comments/:id/replies`, and `/v1/navigate` resources. Line numbers are zero-based.
+The HTTP API exposes the corresponding `/health`, `/v1/comments` (`?resolved=false` for open threads only), `/v1/comments/:id/replies`, `/v1/comments/:id/resolved` (PUT `{ "resolved": true }`), and `/v1/navigate` resources. Line numbers are zero-based.
 
 ## Development
 

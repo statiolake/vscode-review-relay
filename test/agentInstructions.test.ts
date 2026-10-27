@@ -21,6 +21,10 @@ test("local instructions use only workspace-discovered CLI connections", () => {
   assert.match(instructions, /replies are never nested/);
   assert.match(instructions, /Before every reply/);
   assert.match(instructions, /outside the sandbox/);
+  assert.match(instructions, /Skip resolved threads/);
+  assert.match(instructions, /comments list --unresolved/);
+  assert.match(instructions, /`comments resolve`, `comments unresolve`/);
+  assert.match(instructions, /replying to a resolved thread reopens it/);
 });
 
 test("remote workspaces use the CLI with an explicit workspace endpoint", () => {
@@ -36,8 +40,10 @@ test("remote workspaces use the CLI with an explicit workspace endpoint", () => 
   assert.match(instructions, /Endpoint: http:\/\/127\.0\.0\.1:49123/);
   assert.match(instructions, /CLI endpoint: http:\/\/127\.0\.0\.1:49124/);
   assert.match(instructions, /CLI executable: \/extension\/bin\/linux-amd64\/review-relay/);
-  assert.match(instructions, /--endpoint http:\/\/127\.0\.0\.1:49124 comments list/);
+  assert.match(instructions, /--endpoint http:\/\/127\.0\.0\.1:49124 comments list --unresolved/);
   assert.doesNotMatch(instructions, /--workspace/);
   assert.match(instructions, /vscode-remote:\/\/dev-container/);
   assert.match(instructions, /curl -fsS http:\/\/127\.0\.0\.1:49123\/health/);
+  assert.match(instructions, /PUT \/v1\/comments\/<id>\/resolved/);
+  assert.match(instructions, /\?resolved=false keeps only open threads/);
 });

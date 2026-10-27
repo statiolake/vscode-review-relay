@@ -82,18 +82,29 @@ func run(args []string, out io.Writer) error {
 
 func runComments(c client, args []string) error {
 	if len(args) == 0 {
-		return errors.New("comments requires list, add, reply, remove, or clear")
+		return errors.New("comments requires list, add, reply, resolve, unresolve, remove, or clear")
 	}
 	switch args[0] {
 	case "list":
 		flags := flag.NewFlagSet("comments list", flag.ContinueOnError)
 		uri := flags.String("uri", "", "exact VS Code document URI")
+		unresolved := flags.Bool("unresolved", false, "leave out resolved threads")
 		if err := flags.Parse(args[1:]); err != nil {
 			return err
 		}
-		path := "/v1/comments"
+		if flags.NArg() != 0 {
+			return fmt.Errorf("comments list takes no arguments: %q", flags.Args())
+		}
+		query := url.Values{}
 		if *uri != "" {
-			path += "?uri=" + url.QueryEscape(*uri)
+			query.Set("uri", *uri)
+		}
+		if *unresolved {
+			query.Set("resolved", "false")
+		}
+		path := "/v1/comments"
+		if len(query) > 0 {
+			path += "?" + query.Encode()
 		}
 		return c.request(http.MethodGet, path, nil)
 	case "add":
@@ -136,6 +147,11 @@ func runComments(c client, args []string) error {
 			payload["endLine"] = *endLine
 		}
 		return c.request(http.MethodPost, "/v1/comments/"+url.PathEscape(commentID)+"/replies", payload)
+	case "resolve", "unresolve":
+		if len(args) != 2 {
+			return fmt.Errorf("comments %s requires a comment ID", args[0])
+		}
+		return c.request(http.MethodPut, "/v1/comments/"+url.PathEscape(args[1])+"/resolved", map[string]any{"resolved": args[0] == "resolve"})
 	case "remove":
 		if len(args) != 2 {
 			return errors.New("comments remove requires a comment ID")
@@ -319,9 +335,11 @@ current directory. --endpoint and REVIEW_RELAY_ENDPOINT override discovery.
 
 Commands:
   health
-  comments list [--uri URI]
+  comments list [--uri URI] [--unresolved]
   comments add --uri URI --line N [--end-line N] --body TEXT [--author NAME]
   comments reply COMMENT_ID --uri URI --line N [--end-line N] --body TEXT [--author NAME]
+  comments resolve COMMENT_ID
+  comments unresolve COMMENT_ID
   comments remove COMMENT_ID
   comments clear
   navigate --comment COMMENT_ID

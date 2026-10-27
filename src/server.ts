@@ -1,7 +1,7 @@
 import { createServer, IncomingMessage, Server, ServerResponse } from "node:http";
 import { AddressInfo } from "node:net";
 import { CommentStore } from "./store";
-import { validateCreateComment, validateCreateReply, validateNavigate } from "./model";
+import { isThreadResolved, validateCreateComment, validateCreateReply, validateNavigate, validateSetResolved } from "./model";
 import { NavigationService } from "./navigation";
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -34,7 +34,15 @@ export class CommentServer {
       if (request.method === "GET" && url.pathname === "/health") return this.json(response, 200, { ok: true, version: 1 });
       if (request.method === "GET" && url.pathname === "/v1/comments") {
         const uri = url.searchParams.get("uri");
-        const comments = uri ? this.store.list().filter(comment => comment.uri === uri) : this.store.list();
+        const resolvedFilter = url.searchParams.get("resolved");
+        if (resolvedFilter !== null && resolvedFilter !== "true" && resolvedFilter !== "false") {
+          return this.json(response, 400, { error: 'resolved must be "true" or "false".' });
+        }
+        const all = this.store.list();
+        const comments = all.filter(comment =>
+          (!uri || comment.uri === uri)
+          && (resolvedFilter === null || isThreadResolved(all, comment) === (resolvedFilter === "true"))
+        );
         return this.json(response, 200, { overall: this.store.getOverall(), comments });
       }
       if (request.method === "POST" && url.pathname === "/v1/comments") {
@@ -52,6 +60,17 @@ export class CommentServer {
         return comment
           ? this.json(response, 201, { comment })
           : this.json(response, 404, { error: "Parent comment not found." });
+      }
+      const resolvedMatch = /^\/v1\/comments\/([^/]+)\/resolved$/.exec(url.pathname);
+      if (request.method === "PUT" && resolvedMatch) {
+        if (!request.headers["content-type"]?.startsWith("application/json")) return this.json(response, 415, { error: "Content-Type must be application/json." });
+        const comment = await this.store.setResolved(
+          decodeURIComponent(resolvedMatch[1]),
+          validateSetResolved(await this.readJson(request))
+        );
+        return comment
+          ? this.json(response, 200, { comment })
+          : this.json(response, 404, { error: "Comment not found." });
       }
       if (request.method === "POST" && url.pathname === "/v1/navigate") {
         if (!request.headers["content-type"]?.startsWith("application/json")) return this.json(response, 415, { error: "Content-Type must be application/json." });

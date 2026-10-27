@@ -3,16 +3,32 @@ import Module from "node:module";
 import test from "node:test";
 import { CommentStore } from "../src/store";
 
-const threads: Array<{ uri: { toString(): string }; disposed: boolean; dispose(): void }> = [];
+interface FakeThread {
+  uri: { toString(): string };
+  range: { start: { line: number }; end: { line: number } };
+  comments: unknown[];
+  disposed: boolean;
+  state?: number;
+  label?: string;
+  contextValue?: string;
+  collapsibleState?: number;
+  dispose(): void;
+}
+
+const threads: FakeThread[] = [];
+const executed: string[] = [];
+const inputs: string[] = [];
 const api = {
   comments: { createCommentController: () => ({
-    createCommentThread: (uri: { toString(): string }, range: unknown, comments: unknown[]) => {
-      const thread = { uri, range, comments, disposed: false, dispose() { this.disposed = true; } };
+    createCommentThread: (uri: { toString(): string }, range: FakeThread["range"], comments: unknown[]) => {
+      const thread: FakeThread = { uri, range, comments, disposed: false, dispose() { this.disposed = true; } };
       threads.push(thread);
       return thread;
     },
     dispose() {}
   }) },
+  commands: { executeCommand: async (id: string) => { executed.push(id); } },
+  window: { showInputBox: async () => inputs.shift() },
   workspace: { onDidChangeTextDocument: () => ({ dispose() {} }) },
   Uri: { parse: (value: string) => ({ toString: () => value }) },
   Range: class {
@@ -22,9 +38,13 @@ const api = {
       this.start = { line: a, character: b }; this.end = { line: c, character: d };
     }
   },
+  Selection: class {
+    constructor(public anchorLine: number, _a: number, public activeLine: number, _b: number) {}
+  },
   MarkdownString: class { constructor(public value: string) {} },
   CommentMode: { Preview: 0, Editing: 1 },
-  CommentThreadState: { Unresolved: 0, Resolved: 1 }
+  CommentThreadState: { Unresolved: 0, Resolved: 1 },
+  CommentThreadCollapsibleState: { Collapsed: 0, Expanded: 1 }
 };
 const loader = Module as unknown as { _load: (request: string, ...args: unknown[]) => unknown };
 const original = loader._load;
@@ -34,8 +54,28 @@ try {
   Comments = require("../src/vscodeComments").VsCodeComments;
 } finally { loader._load = original; }
 
+function emptyStore(): CommentStore {
+  return new CommentStore({ load: () => ({ overall: "", comments: [] }), save: async () => {} });
+}
+
+function fakeEditor(uri: string) {
+  const editor = {
+    document: { uri: { toString: () => uri } },
+    selection: undefined as unknown,
+    selections: ["original"] as unknown[],
+    history: [] as unknown[]
+  };
+  return new Proxy(editor, {
+    set(target, key, value) {
+      if (key === "selection" || key === "selections") target.history.push(value);
+      return Reflect.set(target, key, value);
+    }
+  });
+}
+
 test("recreates native threads at the new URI when a reply relocates the conversation", async () => {
-  const store = new CommentStore({ load: () => ({ overall: "", comments: [] }), save: async () => {} });
+  threads.length = 0;
+  const store = emptyStore();
   const root = await store.add({ uri: "file:///gone.ts", line: 0, body: "Move me" });
   const adapter = new Comments(store);
   try {
@@ -45,5 +85,55 @@ test("recreates native threads at the new URI when a reply relocates the convers
     assert.equal(threads[1].uri.toString(), "file:///new.ts");
     assert.equal(store.thread(root.id).length, 2);
     assert.ok(store.thread(root.id).every(comment => comment.uri === "file:///new.ts" && comment.range.start.line === 4));
+  } finally { adapter.dispose(); }
+});
+
+test("mirrors the resolved flag into the native thread state", async () => {
+  threads.length = 0;
+  const store = emptyStore();
+  const root = await store.add({ uri: "file:///a.ts", line: 0, body: "Check", source: "human" });
+  const adapter = new Comments(store);
+  try {
+    const thread = threads[0];
+    assert.deepEqual([thread.state, thread.contextValue, thread.label], [0, "unresolved", "Waiting for AI"]);
+    await store.reply(root.id, { uri: "file:///a.ts", line: 0, body: "Done" });
+    assert.equal(thread.label, "Last response: AI");
+    await store.setResolved(root.id, true);
+    assert.deepEqual([thread.state, thread.contextValue, thread.label], [1, "resolved", "Resolved"]);
+    adapter.toggleThread(root.id);
+    assert.equal(thread.collapsibleState, 1);
+    adapter.toggleThread(root.id);
+    assert.equal(thread.collapsibleState, 0);
+  } finally { adapter.dispose(); }
+});
+
+test("focuses a thread's reply editor from its anchor line and restores the selection", async () => {
+  threads.length = 0;
+  executed.length = 0;
+  const store = emptyStore();
+  const root = await store.add({ uri: "file:///a.ts", line: 2, endLine: 5, body: "Check" });
+  const adapter = new Comments(store);
+  try {
+    const editor = fakeEditor("file:///a.ts");
+    await adapter.focusReply(root.id, editor as never);
+    assert.deepEqual(executed, ["workbench.action.focusCommentOnCurrentLine", "widgetNavigation.focusNext"]);
+    const [anchor, restored] = editor.history as Array<{ activeLine?: number }>;
+    assert.equal(anchor.activeLine, 5);
+    assert.deepEqual(restored, ["original"]);
+  } finally { adapter.dispose(); }
+});
+
+test("replies through an input box when an earlier thread shares the anchor line", async () => {
+  threads.length = 0;
+  executed.length = 0;
+  const store = emptyStore();
+  await store.add({ uri: "file:///a.ts", line: 3, body: "First" });
+  const second = await store.add({ uri: "file:///a.ts", line: 3, body: "Second" });
+  const adapter = new Comments(store);
+  try {
+    inputs.push("Answer");
+    await adapter.focusReply(second.id, fakeEditor("file:///a.ts") as never);
+    assert.deepEqual(executed, []);
+    assert.deepEqual(store.thread(second.id).map(comment => [comment.body, comment.source]), [["Second", "agent"], ["Answer", "human"]]);
   } finally { adapter.dispose(); }
 });

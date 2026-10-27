@@ -84,7 +84,12 @@ export class CommentStore {
     this.state = {
       ...this.state,
       comments: [
-        ...this.state.comments.map(item => thread.has(item.id) ? { ...item, uri: input.uri, range } : item),
+        ...this.state.comments.map(item => {
+          if (!thread.has(item.id)) return item;
+          // A new reply reopens a resolved thread.
+          const { resolved: _reopened, ...rest } = item;
+          return { ...rest, uri: input.uri, range };
+        }),
         comment
       ]
     };
@@ -108,6 +113,26 @@ export class CommentStore {
     };
     await this.commit({ threadRanges: true });
     return true;
+  }
+
+  /**
+   * Resolves or reopens the thread containing `id` and returns its root, or
+   * undefined when no such comment exists.
+   */
+  async setResolved(id: string, resolved: boolean): Promise<ReviewComment | undefined> {
+    id = validateCommentId(id);
+    const rootId = this.rootId(id);
+    const root = rootId ? this.state.comments.find(comment => comment.id === rootId) : undefined;
+    if (!root) return undefined;
+    if ((root.resolved === true) === resolved) return root;
+    const { resolved: _previous, ...rest } = root;
+    const next: ReviewComment = resolved ? { ...rest, resolved: true } : rest;
+    this.state = {
+      ...this.state,
+      comments: this.state.comments.map(comment => comment.id === root.id ? next : comment)
+    };
+    await this.commit({ comments: true });
+    return next;
   }
 
   rootId(id: string): string | undefined {

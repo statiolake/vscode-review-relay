@@ -198,3 +198,26 @@ test("fails fast without saving when persisted state is corrupted", () => {
   }), /valid absolute VS Code document URI/);
   assert.equal(saveCount, 0);
 });
+
+test("resolves a thread on its root and a new reply reopens it", async () => {
+  let persisted: ReviewComment[] = [];
+  const store = new CommentStore({
+    load: () => ({ comments: [], overall: "" }),
+    save: async state => { persisted = [...state.comments]; }
+  });
+  const root = await store.add({ uri: "file:///repo/app.ts", line: 1, body: "Root", source: "human" });
+  const reply = await store.reply(root.id, { uri: "file:///repo/app.ts", line: 1, body: "Reply" });
+
+  const resolved = await store.setResolved(reply!.id, true);
+  assert.equal(resolved?.id, root.id);
+  assert.deepEqual(persisted.map(comment => comment.resolved), [true, undefined]);
+
+  await store.reply(root.id, { uri: "file:///repo/app.ts", line: 1, body: "Again" });
+  assert.equal("resolved" in persisted[0], false);
+
+  await store.setResolved(root.id, true);
+  const reopened = await store.setResolved(root.id, false);
+  assert.equal(reopened && "resolved" in reopened, false);
+  assert.equal("resolved" in persisted[0], false);
+  assert.equal(await store.setResolved(ids.missing, true), undefined);
+});

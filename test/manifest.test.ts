@@ -39,3 +39,27 @@ test("offers the comment tree alongside overall review controls", () => {
     { id: "reviewRelay.review", name: "Review", type: "webview" }
   ]);
 });
+
+test("contributes keyboard commands for the thread on the cursor line", () => {
+  const commands = manifest.contributes?.commands?.map(item => item.command) ?? [];
+  const palette = manifest.contributes?.menus?.commandPalette ?? [];
+  for (const command of [
+    "reviewRelay.replyAtCursor",
+    "reviewRelay.editAtCursor",
+    "reviewRelay.deleteCommentAtCursor",
+    "reviewRelay.deleteThreadAtCursor",
+    "reviewRelay.toggleThreadAtCursor",
+    "reviewRelay.toggleResolveAtCursor"
+  ]) {
+    assert.ok(commands.includes(command), command);
+    assert.ok(palette.some(item => item.command === command && item.when === "reviewRelay.cursorOnThread"), command);
+  }
+});
+
+test("offers resolve and reopen on the native thread title", () => {
+  const title = manifest.contributes?.menus?.["comments/commentThread/title"] ?? [];
+  assert.ok(title.some(item => item.command === "reviewRelay.resolveThread"
+    && item.when === "commentController == review-relay && commentThread == unresolved"));
+  assert.ok(title.some(item => item.command === "reviewRelay.unresolveThread"
+    && item.when === "commentController == review-relay && commentThread == resolved"));
+});

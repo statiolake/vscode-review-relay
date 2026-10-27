@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { lineLabel } from "./cursorThreads";
 import { ReviewComment } from "./model";
 import { CommentStore } from "./store";
 
@@ -9,6 +10,9 @@ export class VsCodeComments implements vscode.Disposable {
   private readonly controller = vscode.comments.createCommentController("review-relay", "Review Relay");
   private readonly threads = new Map<string, vscode.CommentThread>();
   private readonly threadModels = new Map<string, readonly ReviewComment[]>();
+  // Creation order of native threads: VS Code lists a line's widgets in it.
+  private readonly created = new Map<string, number>();
+  private sequence = 0;
   private readonly subscriptions: vscode.Disposable[] = [];
   private rangeSync = Promise.resolve();
 
@@ -103,9 +107,93 @@ export class VsCodeComments implements vscode.Disposable {
   }
 
   expandThread(commentId: string): void {
-    const rootId = this.store.rootId(commentId);
-    const thread = rootId ? this.threads.get(rootId) : undefined;
+    const thread = this.nativeThread(commentId);
     if (thread) thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+  }
+
+  collapseThread(commentId: string): void {
+    const thread = this.nativeThread(commentId);
+    if (thread) thread.collapsibleState = vscode.CommentThreadCollapsibleState.Collapsed;
+  }
+
+  /** Expands a collapsed thread or collapses an expanded one. */
+  toggleThread(commentId: string): void {
+    const thread = this.nativeThread(commentId);
+    if (!thread) return;
+    thread.collapsibleState = thread.collapsibleState === vscode.CommentThreadCollapsibleState.Expanded
+      ? vscode.CommentThreadCollapsibleState.Collapsed
+      : vscode.CommentThreadCollapsibleState.Expanded;
+  }
+
+  /** Opens the thread and puts one of its comments in edit mode, focused. */
+  editById(commentId: string): void {
+    const thread = this.nativeThread(commentId);
+    const comment = thread?.comments.find(candidate => (candidate as CommentWithId).reviewRelayId === commentId);
+    if (!thread || !comment) return;
+    thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+    this.edit(comment as CommentWithId);
+  }
+
+  /**
+   * Opens the thread and focuses its reply editor. VS Code has no stable API
+   * for that, so this moves the cursor to the thread's last line (where VS
+   * Code anchors the thread), focuses the line's thread, steps from its
+   * comments to its reply editor, and restores the selection.
+   *
+   * VS Code takes the first widget anchored on the line. When another thread
+   * shares the anchor line and may precede this one, the reply goes through
+   * an input box instead so it cannot land in the wrong thread.
+   */
+  async focusReply(rootId: string, editor: vscode.TextEditor): Promise<void> {
+    const thread = this.threads.get(rootId);
+    const root = this.store.list().find(comment => comment.id === rootId);
+    if (!thread?.range || !root) return;
+    if (thread.uri.toString() !== editor.document.uri.toString() || this.mayBeShadowed(rootId, thread)) {
+      await this.replyWithInputBox(root, thread);
+      return;
+    }
+    const selections = editor.selections;
+    const anchor = thread.range.end.line;
+    editor.selection = new vscode.Selection(anchor, 0, anchor, 0);
+    try {
+      await vscode.commands.executeCommand("workbench.action.focusCommentOnCurrentLine");
+      await vscode.commands.executeCommand("widgetNavigation.focusNext");
+    } finally {
+      editor.selections = selections;
+    }
+  }
+
+  private mayBeShadowed(rootId: string, thread: vscode.CommentThread): boolean {
+    const order = this.created.get(rootId) ?? 0;
+    const start = thread.range!.start.line;
+    const anchor = thread.range!.end.line;
+    for (const [otherId, other] of this.threads) {
+      if (otherId === rootId || !other.range || other.uri.toString() !== thread.uri.toString()) continue;
+      if (other.range.end.line !== anchor) continue;
+      if ((this.created.get(otherId) ?? 0) < order || other.range.start.line < start) return true;
+    }
+    return false;
+  }
+
+  private async replyWithInputBox(root: ReviewComment, thread: vscode.CommentThread): Promise<void> {
+    const body = await vscode.window.showInputBox({
+      prompt: `Reply to the thread on ${lineLabel(root)}: ${root.body.split("\n", 1)[0]}`,
+      ignoreFocusOut: true
+    });
+    if (!body?.trim() || !thread.range) return;
+    await this.store.reply(root.id, {
+      uri: thread.uri.toString(),
+      line: thread.range.start.line,
+      endLine: thread.range.end.line,
+      body,
+      author: "Human",
+      source: "human"
+    });
+  }
+
+  private nativeThread(commentId: string): vscode.CommentThread | undefined {
+    const rootId = this.store.rootId(commentId);
+    return rootId ? this.threads.get(rootId) : undefined;
   }
 
   private queueRangeSync(uri: vscode.Uri): void {
@@ -139,9 +227,11 @@ export class VsCodeComments implements vscode.Disposable {
         existing.dispose();
         this.threads.delete(root.id);
         this.threadModels.delete(root.id);
+        this.created.delete(root.id);
         existing = undefined;
       }
       if (existing) {
+        applyStatus(existing, comments);
         if (!sameComments(this.threadModels.get(root.id), comments)) {
           if (updateRanges) existing.range = range;
           if (existing.comments.some(comment => comment.mode === vscode.CommentMode.Editing)) continue;
@@ -150,7 +240,6 @@ export class VsCodeComments implements vscode.Disposable {
         } else if (updateRanges) {
           existing.range = range;
         }
-        existing.state = stateFor(comments);
       } else {
         const thread = this.controller.createCommentThread(
           vscode.Uri.parse(root.uri),
@@ -158,10 +247,10 @@ export class VsCodeComments implements vscode.Disposable {
           comments.map(comment => this.renderComment(comment))
         ) as ThreadWithId;
         thread.reviewRelayId = root.id;
-        thread.contextValue = "review-relay";
         thread.canReply = true;
-        thread.state = stateFor(comments);
+        applyStatus(thread, comments);
         this.threads.set(root.id, thread);
+        this.created.set(root.id, this.sequence++);
         this.threadModels.set(root.id, comments);
       }
     }
@@ -169,6 +258,7 @@ export class VsCodeComments implements vscode.Disposable {
       this.threads.get(id)?.dispose();
       this.threads.delete(id);
       this.threadModels.delete(id);
+      this.created.delete(id);
     }
   }
 
@@ -213,10 +303,20 @@ function toReviewRange(range: vscode.Range): ReviewComment["range"] {
   };
 }
 
-function stateFor(comments: readonly ReviewComment[]): vscode.CommentThreadState {
-  return comments.at(-1)?.source === "human"
-    ? vscode.CommentThreadState.Resolved
-    : vscode.CommentThreadState.Unresolved;
+/**
+ * Mirrors the thread's resolved flag into VS Code's native state (which drives
+ * the Comments panel filter and the gutter icon) and names who answered last.
+ */
+function applyStatus(thread: vscode.CommentThread, comments: readonly ReviewComment[]): void {
+  const resolved = comments[0]?.resolved === true;
+  const state = resolved ? vscode.CommentThreadState.Resolved : vscode.CommentThreadState.Unresolved;
+  const contextValue = resolved ? "resolved" : "unresolved";
+  const label = resolved
+    ? "Resolved"
+    : comments.at(-1)?.source === "agent" ? "Last response: AI" : "Waiting for AI";
+  if (thread.state !== state) thread.state = state;
+  if (thread.contextValue !== contextValue) thread.contextValue = contextValue;
+  if (thread.label !== label) thread.label = label;
 }
 
 function sameComments(

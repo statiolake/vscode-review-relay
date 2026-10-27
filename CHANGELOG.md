@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- Add keyboard commands that act on the thread on the cursor line: reply (focusing the reply editor), edit, delete a comment, delete the thread, resolve or reopen, and show or hide. Several candidates are chosen from a numbered quick pick. `reviewRelay.cursorOnThread` reports whether the cursor is on a thread, and the reply, edit, and delete widget commands fall back to the cursor line when run without an argument.
+- Let threads be resolved, as in the standalone Review Relay viewer: **Resolve** / **Reopen** in the thread title, a `resolved` flag on the root comment, `PUT /v1/comments/:id/resolved`, `comments resolve` / `comments unresolve`, and `comments list --unresolved` (`?resolved=false`). A new reply reopens a thread. Agents are told to skip resolved threads, and the Markdown export leaves them out.
+- VS Code's native resolved state now follows this flag instead of who answered last; the thread title shows **Waiting for AI** or **Last response: AI** instead.
+
 ## 0.3.0
 
 - Restore the Review Relay comment tree with direct deletion and ID copying, including comments whose files no longer exist. Show only replies beneath each root comment.

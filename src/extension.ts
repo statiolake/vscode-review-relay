@@ -9,6 +9,7 @@ import { ReviewViewProvider } from "./reviewView";
 import { CommentsTreeElement, CommentsTreeProvider } from "./commentsTree";
 import { SessionRegistration } from "./sessionRegistry";
 import { createWorkspacePersistence, resetWorkspaceData } from "./workspacePersistence";
+import { CursorCommands } from "./cursorCommands";
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   let store: CommentStore;
@@ -55,6 +56,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const cliPath = context.asAbsolutePath(`bin/${cliPlatform}-${cliArch}/${cliName}`);
   const reviewView = new ReviewViewProvider(store);
   const commentsTree = new CommentsTreeProvider(store);
+  const cursor = new CursorCommands(store, comments);
   const copyAgentInstructions = async () => {
     const instructions = createAgentInstructions({
       endpoint,
@@ -75,6 +77,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     comments,
     reviewView,
     commentsTree,
+    cursor,
     status,
     { dispose: () => { void session.dispose(); void server.stop(); } },
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -88,11 +91,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerTreeDataProvider(CommentsTreeProvider.viewType, commentsTree),
     vscode.commands.registerCommand("reviewRelay.addComment", () => comments.addAtSelection()),
     vscode.commands.registerCommand("reviewRelay.submitComment", (reply: vscode.CommentReply) => comments.submit(reply)),
-    vscode.commands.registerCommand("reviewRelay.replyComment", (reply: vscode.CommentReply) => comments.submit(reply)),
-    vscode.commands.registerCommand("reviewRelay.editComment", comment => comments.edit(comment)),
+    // Comment-widget actions pass their comment or thread; without one (from a
+    // keybinding) they act on the cursor line like the *AtCursor commands.
+    vscode.commands.registerCommand("reviewRelay.replyComment", (reply?: vscode.CommentReply) =>
+      reply ? comments.submit(reply) : cursor.reply()),
+    vscode.commands.registerCommand("reviewRelay.editComment", comment => comment ? comments.edit(comment) : cursor.edit()),
     vscode.commands.registerCommand("reviewRelay.saveComment", comment => comments.save(comment)),
     vscode.commands.registerCommand("reviewRelay.cancelEditComment", comment => comments.cancelEdit(comment)),
-    vscode.commands.registerCommand("reviewRelay.deleteComment", comment => comments.remove(comment)),
+    vscode.commands.registerCommand("reviewRelay.deleteComment", comment =>
+      comment ? comments.remove(comment) : cursor.deleteComment()),
+    vscode.commands.registerCommand("reviewRelay.replyAtCursor", () => cursor.reply()),
+    vscode.commands.registerCommand("reviewRelay.editAtCursor", () => cursor.edit()),
+    vscode.commands.registerCommand("reviewRelay.deleteCommentAtCursor", () => cursor.deleteComment()),
+    vscode.commands.registerCommand("reviewRelay.deleteThreadAtCursor", () => cursor.deleteThread()),
+    vscode.commands.registerCommand("reviewRelay.toggleThreadAtCursor", () => cursor.toggleThread()),
+    vscode.commands.registerCommand("reviewRelay.toggleResolveAtCursor", () => cursor.toggleResolved()),
+    vscode.commands.registerCommand("reviewRelay.resolveThread", async (target?: unknown) => {
+      const id = commentIdOf(target);
+      return id ? cursor.setResolved(id, true) : cursor.toggleResolved();
+    }),
+    vscode.commands.registerCommand("reviewRelay.unresolveThread", async (target?: unknown) => {
+      const id = commentIdOf(target);
+      return id ? cursor.setResolved(id, false) : cursor.toggleResolved();
+    }),
     vscode.commands.registerCommand("reviewRelay.deleteTreeComment", async (element: CommentsTreeElement) => {
       if (!element || element.kind === "file") return;
       await store.remove(element.id);

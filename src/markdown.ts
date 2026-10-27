@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { ReviewComment } from "./model";
+import { isThreadResolved, ReviewComment } from "./model";
 import { CommentStore } from "./store";
 
 interface LocationGroup {
@@ -14,7 +14,9 @@ export async function renderReviewMarkdown(store: CommentStore): Promise<string>
   const overall = store.getOverall().trim();
   if (overall) parts.push(overall, "");
 
-  for (const group of groupByLocation(store.list())) {
+  // Resolved threads are done; the export is pending work for an agent.
+  const comments = store.list();
+  for (const group of groupByLocation(comments.filter(comment => !isThreadResolved(comments, comment)))) {
     const label = documentLabel(group.uri);
     const lines = group.startLine === group.endLine
       ? `${group.startLine + 1}`

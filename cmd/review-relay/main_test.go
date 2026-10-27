@@ -141,3 +141,46 @@ func TestDiscoveryRejectsAmbiguousSessions(t *testing.T) {
 		t.Fatal("expected ambiguous discovery to fail")
 	}
 }
+
+func TestResolveAndUnresolvedListing(t *testing.T) {
+	type call struct {
+		method, path string
+		body         map[string]any
+	}
+	var calls []call
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		calls = append(calls, call{r.Method, r.URL.RequestURI(), body})
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	for _, args := range [][]string{
+		{"comments", "resolve", "comment-1"},
+		{"comments", "unresolve", "comment-1"},
+		{"comments", "list", "--unresolved", "--uri", "file:///a.ts"},
+	} {
+		if err := run(append([]string{"--endpoint", server.URL}, args...), &bytes.Buffer{}); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	if c := calls[0]; c.method != http.MethodPut || c.path != "/v1/comments/comment-1/resolved" || c.body["resolved"] != true {
+		t.Errorf("resolve: %+v", c)
+	}
+	if c := calls[1]; c.method != http.MethodPut || c.body["resolved"] != false {
+		t.Errorf("unresolve: %+v", c)
+	}
+	if c := calls[2]; c.path != "/v1/comments?resolved=false&uri=file%3A%2F%2F%2Fa.ts" {
+		t.Errorf("list --unresolved: %+v", c)
+	}
+	for _, bad := range [][]string{
+		{"comments", "resolve"},
+		{"comments", "unresolve", "a", "b"},
+		{"comments", "list", "stray"},
+	} {
+		if err := run(append([]string{"--endpoint", server.URL}, bad...), &bytes.Buffer{}); err == nil {
+			t.Errorf("%v: expected an error", bad)
+		}
+	}
+}

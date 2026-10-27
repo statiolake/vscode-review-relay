@@ -119,6 +119,40 @@ test("comments round-trip through the loopback API", async () => {
   }
 });
 
+test("threads resolve through the API and can be listed without resolved ones", async () => {
+  const store = new CommentStore({ load: () => ({ comments: [], overall: "" }), save: async () => {} });
+  const server = new CommentServer(store, createNavigationSpy().service);
+  const origin = `http://127.0.0.1:${await server.start(0)}`;
+  const put = (id: string, body: string, contentType = "application/json") => fetch(`${origin}/v1/comments/${id}/resolved`, {
+    method: "PUT", headers: { "content-type": contentType }, body
+  });
+  try {
+    const done = await store.add({ uri: "file:///repo/app.ts", line: 1, body: "Done" });
+    const reply = await store.reply(done.id, { uri: "file:///repo/app.ts", line: 1, body: "Fixed" });
+    const open = await store.add({ uri: "file:///repo/app.ts", line: 5, body: "Open" });
+
+    const resolved = await put(reply!.id, JSON.stringify({ resolved: true }));
+    assert.equal(resolved.status, 200);
+    const root = (await resolved.json() as { comment: ReviewComment }).comment;
+    assert.equal(root.id, done.id);
+    assert.equal(root.resolved, true);
+
+    const unresolvedList = await (await fetch(`${origin}/v1/comments?resolved=false`)).json() as { comments: ReviewComment[] };
+    assert.deepEqual(unresolvedList.comments.map(comment => comment.id), [open.id]);
+    const resolvedList = await (await fetch(`${origin}/v1/comments?resolved=true&uri=${encodeURIComponent("file:///repo/app.ts")}`)).json() as { comments: ReviewComment[] };
+    assert.deepEqual(resolvedList.comments.map(comment => comment.id), [done.id, reply!.id]);
+    assert.equal((await fetch(`${origin}/v1/comments?resolved=maybe`)).status, 400);
+
+    assert.equal((await put(done.id, JSON.stringify({ resolved: "yes" }))).status, 400);
+    assert.equal((await put(done.id, JSON.stringify({ resolved: false }), "text/plain")).status, 415);
+    assert.equal((await put("00000000-0000-4000-8000-000000000099", JSON.stringify({ resolved: true }))).status, 404);
+    const reopened = await put(done.id, JSON.stringify({ resolved: false }));
+    assert.equal("resolved" in (await reopened.json() as { comment: ReviewComment }).comment, false);
+  } finally {
+    await server.stop();
+  }
+});
+
 test("write endpoints reject browser-origin requests", async () => {
   const store = new CommentStore({
     load: () => ({ comments: [], overall: "" }),

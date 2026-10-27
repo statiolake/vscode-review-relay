@@ -4,7 +4,8 @@ import {
   validateCreateComment,
   validateCreateReply,
   validateNavigate,
-  validateReviewRelayState
+  validateReviewRelayState,
+  validateSetResolved
 } from "../src/model";
 
 const validComment = {
@@ -130,4 +131,21 @@ test("normalizes legacy nested replies into one ordered thread", () => {
     validComment.id,
     validComment.id
   ]);
+});
+
+test("keeps resolved only on a thread's root and drops an explicit false", () => {
+  const reply = { ...validComment, id: "00000000-0000-4000-8000-000000000002", parentId: validComment.id };
+  const state = validateReviewRelayState({
+    comments: [{ ...validComment, resolved: true }, { ...reply, resolved: false }],
+    overall: ""
+  });
+  assert.equal(state.comments[0].resolved, true);
+  assert.equal("resolved" in state.comments[1], false);
+  assert.throws(() => validateReviewRelayState({
+    comments: [validComment, { ...reply, resolved: true }],
+    overall: ""
+  }), /Only a thread's root comment can be resolved/);
+  assert.equal(validateSetResolved({ resolved: false }), false);
+  assert.throws(() => validateSetResolved({ resolved: "yes" }));
+  assert.throws(() => validateSetResolved({}));
 });

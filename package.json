@@ -2,7 +2,7 @@
   "name": "vscode-review-relay",
   "displayName": "Review Relay",
   "description": "Live review comments shared between VS Code and local AI tools.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "statiolake",
   "license": "MIT",
   "author": "statiolake",
@@ -61,6 +61,40 @@
       {
         "command": "reviewRelay.addComment",
         "title": "Review Relay: Add Comment"
+      },
+      {
+        "command": "reviewRelay.replyAtCursor",
+        "title": "Review Relay: Reply to Thread on Current Line"
+      },
+      {
+        "command": "reviewRelay.editAtCursor",
+        "title": "Review Relay: Edit Comment on Current Line"
+      },
+      {
+        "command": "reviewRelay.deleteCommentAtCursor",
+        "title": "Review Relay: Delete Comment on Current Line"
+      },
+      {
+        "command": "reviewRelay.deleteThreadAtCursor",
+        "title": "Review Relay: Delete Thread on Current Line"
+      },
+      {
+        "command": "reviewRelay.toggleThreadAtCursor",
+        "title": "Review Relay: Show or Hide Thread on Current Line"
+      },
+      {
+        "command": "reviewRelay.toggleResolveAtCursor",
+        "title": "Review Relay: Resolve or Reopen Thread on Current Line"
+      },
+      {
+        "command": "reviewRelay.resolveThread",
+        "title": "Resolve",
+        "icon": "$(check)"
+      },
+      {
+        "command": "reviewRelay.unresolveThread",
+        "title": "Reopen",
+        "icon": "$(discard)"
       },
       {
         "command": "reviewRelay.editComment",
@@ -164,6 +198,38 @@
         {
           "command": "reviewRelay.deleteTreeComment",
           "when": "false"
+        },
+        {
+          "command": "reviewRelay.replyAtCursor",
+          "when": "reviewRelay.cursorOnThread"
+        },
+        {
+          "command": "reviewRelay.editAtCursor",
+          "when": "reviewRelay.cursorOnThread"
+        },
+        {
+          "command": "reviewRelay.deleteCommentAtCursor",
+          "when": "reviewRelay.cursorOnThread"
+        },
+        {
+          "command": "reviewRelay.deleteThreadAtCursor",
+          "when": "reviewRelay.cursorOnThread"
+        },
+        {
+          "command": "reviewRelay.toggleThreadAtCursor",
+          "when": "reviewRelay.cursorOnThread"
+        },
+        {
+          "command": "reviewRelay.toggleResolveAtCursor",
+          "when": "reviewRelay.cursorOnThread"
+        },
+        {
+          "command": "reviewRelay.resolveThread",
+          "when": "false"
+        },
+        {
+          "command": "reviewRelay.unresolveThread",
+          "when": "false"
         }
       ],
       "editor/context": [
@@ -234,6 +300,18 @@
           "command": "reviewRelay.deleteTreeComment",
           "group": "navigation@2",
           "when": "view == reviewRelay.comments && viewItem == reviewRelayComment"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "reviewRelay.resolveThread",
+          "group": "inline@1",
+          "when": "commentController == review-relay && commentThread == unresolved"
+        },
+        {
+          "command": "reviewRelay.unresolveThread",
+          "group": "inline@1",
+          "when": "commentController == review-relay && commentThread == resolved"
         }
       ]
     }

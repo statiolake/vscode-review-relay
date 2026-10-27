@@ -48,12 +48,12 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
       const conversation = replies === 0
         ? comment.author
         : `${comment.author} · ${replies} ${replies === 1 ? "reply" : "replies"}`;
-      const status = agentLast ? "Last response: AI" : "Waiting for AI";
+      const status = comment.resolved ? "Resolved" : agentLast ? "Last response: AI" : "Waiting for AI";
       item.description = `${conversation} · ${status}`;
       const tooltip = new vscode.MarkdownString(`**${status}**\n\n${comment.body}`);
       tooltip.isTrusted = false;
       item.tooltip = tooltip;
-      item.iconPath = new vscode.ThemeIcon(agentLast ? "comment-unresolved" : "comment");
+      item.iconPath = new vscode.ThemeIcon(comment.resolved ? "pass" : agentLast ? "comment-unresolved" : "comment");
       item.command = navigateCommand(comment.id);
       item.id = `thread:${comment.id}`;
       item.contextValue = "reviewRelayComment";

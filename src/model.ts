@@ -50,7 +50,10 @@ const reviewCommentSchema = z.strictObject({
   body: bodySchema,
   author: authorSchema,
   source: commentSourceSchema,
-  createdAt: z.iso.datetime({ offset: true })
+  createdAt: z.iso.datetime({ offset: true }),
+  // Only a thread's root carries this, and only as true (like the standalone
+  // viewer's `resolved,omitempty`). A new reply reopens the thread.
+  resolved: z.boolean().optional()
 });
 
 const createCommentSchema = z.strictObject({
@@ -76,6 +79,8 @@ const createReplySchema = z.strictObject({
   message: "endLine must be greater than or equal to line.",
   path: ["endLine"]
 });
+
+const setResolvedSchema = z.strictObject({ resolved: z.boolean() });
 
 const navigateByCommentSchema = z.strictObject({ commentId: commentIdSchema });
 const navigateByLocationSchema = z.strictObject({
@@ -106,6 +111,13 @@ export const reviewRelayStateSchema = z.strictObject({
 
   for (const [index, comment] of state.comments.entries()) {
     if (!comment.parentId) continue;
+    if (comment.resolved) {
+      context.addIssue({
+        code: "custom",
+        message: "Only a thread's root comment can be resolved.",
+        path: ["comments", index, "resolved"]
+      });
+    }
     const parent = byId.get(comment.parentId);
     if (!parent) {
       context.addIssue({
@@ -139,6 +151,12 @@ export type CreateReplyInput = z.infer<typeof createReplySchema>;
 export type ReviewRelayState = z.infer<typeof reviewRelayStateSchema>;
 export type NavigateInput = z.infer<typeof navigateSchema>;
 
+/** Whether the thread rooted at (or containing) this comment is resolved. */
+export function isThreadResolved(comments: readonly ReviewComment[], comment: ReviewComment): boolean {
+  const rootId = comment.parentId ?? comment.id;
+  return comments.find(candidate => candidate.id === rootId)?.resolved === true;
+}
+
 export interface NavigationTarget {
   uri: string;
   line: number;
@@ -148,6 +166,10 @@ export interface NavigationTarget {
 
 export function validateCommentId(value: unknown): string {
   return commentIdSchema.parse(value);
+}
+
+export function validateSetResolved(value: unknown): boolean {
+  return setResolvedSchema.parse(value).resolved;
 }
 
 export function validateNavigate(value: unknown): NavigateInput {
@@ -180,6 +202,10 @@ export function validateReviewRelayState(value: unknown): ReviewRelayState {
   return {
     ...state,
     comments: state.comments.map(comment => {
+      if (comment.resolved === false) {
+        const { resolved: _unresolved, ...rest } = comment;
+        comment = rest;
+      }
       if (!comment.parentId) return comment;
       let root = byId.get(comment.parentId)!;
       while (root.parentId) root = byId.get(root.parentId)!;
