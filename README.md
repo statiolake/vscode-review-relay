@@ -8,7 +8,7 @@ Add comments to code with VS Code's native comment UI. Agents can read them, rep
 
 1. Install **Review Relay** from the VS Code Marketplace.
 2. Open a project and select a line or range.
-3. Run **Review Relay: Add Comment** from the Command Palette or editor context menu.
+3. Click the **+** in the gutter, or run **Review Relay: Add Comment** from the Command Palette or editor context menu, type the comment, and press **Add Comment** (Ctrl/Cmd+Enter).
 4. Open the Review Relay icon in the Activity Bar to add an overall review and copy agent instructions.
 
 Review Relay's **Comments** tree groups comments by file and thread. Click a row to open its location in the editor. Hover over a thread or comment for **Copy Comment ID** and **Delete Comment**, or use its right-click menu. Deleting a thread removes all replies; deleting a reply preserves the rest of the thread. These actions work even when the file has been moved or deleted.
@@ -21,7 +21,7 @@ These commands act on the thread covering the active editor's cursor line, so th
 
 | Command | Action |
 | --- | --- |
-| `reviewRelay.addComment` | Add a thread on the current line or selection |
+| `reviewRelay.addComment` | Open VS Code's new-thread widget (as the gutter **+** does) on the current line or the selected lines, with the focus in its input |
 | `reviewRelay.replyAtCursor` | Open the thread and put the focus in its reply editor |
 | `reviewRelay.editAtCursor` | Edit a comment of the thread |
 | `reviewRelay.deleteCommentAtCursor` | Delete a comment, after confirmation (deleting the first comment deletes the thread) |

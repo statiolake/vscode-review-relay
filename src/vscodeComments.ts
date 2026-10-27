@@ -31,18 +31,30 @@ export class VsCodeComments implements vscode.Disposable {
     this.render(true);
   }
 
+  /**
+   * Opens VS Code's own new-thread widget (what the gutter "+" opens) on the
+   * selected lines, its input focused; submitting it goes through `submit`,
+   * and VS Code drops the empty thread when the widget is closed. The lines
+   * are read here, when the command starts, so a Vim visual selection ended
+   * right after still gives them.
+   */
   async addAtSelection(): Promise<void> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
-    const body = await vscode.window.showInputBox({ prompt: "Review comment", ignoreFocusOut: true });
-    if (!body?.trim()) return;
-    await this.store.add({
-      uri: editor.document.uri.toString(),
-      line: editor.selection.start.line,
-      endLine: editor.selection.end.line,
-      body,
-      author: "Human",
-      source: "human"
+    const selection = editor.selections.length === 1 ? editor.selection : undefined;
+    if (selection && selection.start.line === selection.end.line) {
+      // VS Code's own path for one line (its range argument loses the start column)
+      await vscode.commands.executeCommand("workbench.action.addComment");
+      return;
+    }
+    const { start, end } = selectedLines(editor.selections);
+    await vscode.commands.executeCommand("workbench.action.addComment", {
+      range: {
+        startLineNumber: start + 1,
+        startColumn: 1,
+        endLineNumber: end + 1,
+        endColumn: editor.document.lineAt(end).text.length + 1
+      }
     });
   }
 
@@ -294,6 +306,25 @@ export class VsCodeComments implements vscode.Disposable {
     this.threads.forEach(thread => thread.dispose());
     this.controller.dispose();
   }
+}
+
+/**
+ * The lines the selections cover, as VS Code counts them for a command on the
+ * selected lines: a selection ending at the start of a line leaves that line out.
+ */
+export function selectedLines(selections: readonly SelectionLike[]): { start: number; end: number } {
+  let start = Infinity;
+  let end = -Infinity;
+  for (const { start: from, end: to } of selections) {
+    start = Math.min(start, from.line);
+    end = Math.max(end, to.character === 0 && to.line > from.line ? to.line - 1 : to.line);
+  }
+  return { start, end };
+}
+
+interface SelectionLike {
+  readonly start: { readonly line: number };
+  readonly end: { readonly line: number; readonly character: number };
 }
 
 function toReviewRange(range: vscode.Range): ReviewComment["range"] {

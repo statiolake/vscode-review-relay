@@ -17,7 +17,9 @@ interface FakeThread {
 
 const threads: FakeThread[] = [];
 const executed: string[] = [];
+const executedArgs: unknown[] = [];
 const inputs: string[] = [];
+let activeTextEditor: unknown;
 const api = {
   comments: { createCommentController: () => ({
     createCommentThread: (uri: { toString(): string }, range: FakeThread["range"], comments: unknown[]) => {
@@ -27,8 +29,8 @@ const api = {
     },
     dispose() {}
   }) },
-  commands: { executeCommand: async (id: string) => { executed.push(id); } },
-  window: { showInputBox: async () => inputs.shift() },
+  commands: { executeCommand: async (id: string, ...args: unknown[]) => { executed.push(id); executedArgs.push(args); } },
+  window: { showInputBox: async () => inputs.shift(), get activeTextEditor() { return activeTextEditor; } },
   workspace: { onDidChangeTextDocument: () => ({ dispose() {} }) },
   Uri: { parse: (value: string) => ({ toString: () => value }) },
   Range: class {
@@ -49,9 +51,10 @@ const api = {
 const loader = Module as unknown as { _load: (request: string, ...args: unknown[]) => unknown };
 const original = loader._load;
 let Comments: typeof import("../src/vscodeComments").VsCodeComments;
+let selectedLines: typeof import("../src/vscodeComments").selectedLines;
 try {
   loader._load = (request, ...args) => request === "vscode" ? api : original(request, ...args);
-  Comments = require("../src/vscodeComments").VsCodeComments;
+  ({ VsCodeComments: Comments, selectedLines } = require("../src/vscodeComments"));
 } finally { loader._load = original; }
 
 function emptyStore(): CommentStore {
@@ -136,4 +139,48 @@ test("replies through an input box when an earlier thread shares the anchor line
     assert.deepEqual(executed, []);
     assert.deepEqual(store.thread(second.id).map(comment => [comment.body, comment.source]), [["Second", "agent"], ["Answer", "human"]]);
   } finally { adapter.dispose(); }
+});
+
+function selection(startLine: number, startCharacter: number, endLine: number, endCharacter: number) {
+  return { start: { line: startLine, character: startCharacter }, end: { line: endLine, character: endCharacter } };
+}
+
+test("counts the lines a selection covers as VS Code does for a command on the selected lines", () => {
+  assert.deepEqual(selectedLines([selection(2, 4, 2, 4)]), { start: 2, end: 2 });
+  assert.deepEqual(selectedLines([selection(2, 0, 5, 3)]), { start: 2, end: 5 });
+  // a selection ending at the start of a line leaves that line out
+  assert.deepEqual(selectedLines([selection(2, 0, 5, 0)]), { start: 2, end: 4 });
+  // a visual block: one selection per line
+  assert.deepEqual(selectedLines([selection(4, 1, 4, 3), selection(2, 1, 2, 3), selection(3, 1, 3, 3)]), { start: 2, end: 4 });
+});
+
+test("adds a thread through VS Code's own new-thread widget, never an input box", async () => {
+  threads.length = 0;
+  const adapter = new Comments(emptyStore());
+  try {
+    const lines = ["zero", "one", "two", "three"];
+    const editorOn = (...selections: ReturnType<typeof selection>[]) => ({
+      document: { uri: { toString: () => "file:///a.ts" }, lineAt: (line: number) => ({ text: lines[line] }) },
+      selection: selections[0],
+      selections
+    });
+    executed.length = 0;
+    executedArgs.length = 0;
+    activeTextEditor = editorOn(selection(1, 2, 1, 2));
+    await adapter.addAtSelection();
+    assert.deepEqual(executed, ["workbench.action.addComment"]);
+    assert.deepEqual(executedArgs, [[]]);
+
+    executed.length = 0;
+    executedArgs.length = 0;
+    activeTextEditor = editorOn(selection(1, 0, 3, 0), selection(2, 0, 2, 1));
+    await adapter.addAtSelection();
+    assert.deepEqual(executed, ["workbench.action.addComment"]);
+    assert.deepEqual(executedArgs, [[{ range: { startLineNumber: 2, startColumn: 1, endLineNumber: 3, endColumn: 4 } }]]);
+    assert.equal(inputs.length, 0);
+    assert.equal(threads.length, 0);
+  } finally {
+    activeTextEditor = undefined;
+    adapter.dispose();
+  }
 });

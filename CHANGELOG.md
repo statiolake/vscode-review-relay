@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- **Add Comment** (`reviewRelay.addComment`) opens VS Code's own new-thread widget on the current line or the selected lines (every line of a multi-cursor or block selection), with the focus in its input, instead of an input box. The thread is created when the comment is submitted; closing the widget leaves no empty thread. A thread already anchored on that line is shown or hidden instead, as with the gutter **+**.
+
 ## 0.4.0
 
 - Add keyboard commands that act on the thread on the cursor line: reply (focusing the reply editor), edit, delete a comment, delete the thread, resolve or reopen, and show or hide. Several candidates are chosen from a numbered quick pick. `reviewRelay.cursorOnThread` reports whether the cursor is on a thread, and the reply, edit, and delete widget commands fall back to the cursor line when run without an argument.
