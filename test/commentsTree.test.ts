@@ -58,3 +58,23 @@ test("keeps missing-file comments accessible and refreshes the tree after deleti
     tree.dispose();
   }
 });
+
+test("hides resolved threads and files left with only resolved threads", async () => {
+  const store = new CommentStore({ load: () => ({ comments: [], overall: "" }), save: async () => {} });
+  const open = await store.add({ uri: "file:///a.ts", line: 1, body: "Open" });
+  const done = await store.add({ uri: "file:///a.ts", line: 2, body: "Done" });
+  const other = await store.add({ uri: "file:///b.ts", line: 1, body: "Other" });
+  await store.setResolved(done.id, true);
+  await store.setResolved(other.id, true);
+  const tree = new Tree(store);
+  try {
+    const files = tree.getChildren();
+    assert.deepEqual(files, [{ kind: "file", uri: "file:///a.ts" }]);
+    assert.deepEqual(tree.getChildren(files[0]), [{ kind: "thread", id: open.id }]);
+    assert.equal(tree.getTreeItem(files[0]).description, "1 thread");
+    await store.setResolved(other.id, false);
+    assert.equal(tree.getChildren().length, 2);
+  } finally {
+    tree.dispose();
+  }
+});

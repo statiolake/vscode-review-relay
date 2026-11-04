@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3
+
+- The **Comments** tree hides resolved threads, and files left with only resolved threads. Reopening a thread brings it back.
+
 ## 0.4.1
 
 - **Add Comment** (`reviewRelay.addComment`) opens VS Code's own new-thread widget on the current line or the selected lines (every line of a multi-cursor or block selection), with the focus in its input, instead of an input box. The thread is created when the comment is submitted; closing the widget leaves no empty thread. A thread already anchored on that line is shown or hidden instead, as with the gutter **+**.

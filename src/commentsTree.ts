@@ -20,7 +20,7 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
 
   getTreeItem(element: CommentsTreeElement): vscode.TreeItem {
     if (element.kind === "file") {
-      const threads = this.store.list().filter(comment => !comment.parentId).filter(comment => comment.uri === element.uri);
+      const threads = this.openThreads().filter(comment => comment.uri === element.uri);
       const item = new vscode.TreeItem(documentLabel(element.uri), vscode.TreeItemCollapsibleState.Expanded);
       item.id = `file:${element.uri}`;
       item.resourceUri = safeUri(element.uri);
@@ -48,12 +48,12 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
       const conversation = replies === 0
         ? comment.author
         : `${comment.author} · ${replies} ${replies === 1 ? "reply" : "replies"}`;
-      const status = comment.resolved ? "Resolved" : agentLast ? "Last response: AI" : "Waiting for AI";
+      const status = agentLast ? "Last response: AI" : "Waiting for AI";
       item.description = `${conversation} · ${status}`;
       const tooltip = new vscode.MarkdownString(`**${status}**\n\n${comment.body}`);
       tooltip.isTrusted = false;
       item.tooltip = tooltip;
-      item.iconPath = new vscode.ThemeIcon(comment.resolved ? "pass" : agentLast ? "comment-unresolved" : "comment");
+      item.iconPath = new vscode.ThemeIcon(agentLast ? "comment-unresolved" : "comment");
       item.command = navigateCommand(comment.id);
       item.id = `thread:${comment.id}`;
       item.contextValue = "reviewRelayComment";
@@ -76,12 +76,12 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
 
   getChildren(element?: CommentsTreeElement): CommentsTreeElement[] {
     if (!element) {
-      return [...new Set(this.store.list().filter(comment => !comment.parentId).map(comment => comment.uri))]
+      return [...new Set(this.openThreads().map(comment => comment.uri))]
         .sort((left, right) => documentLabel(left).localeCompare(documentLabel(right)))
         .map(uri => ({ kind: "file", uri }));
     }
     if (element.kind === "file") {
-      return this.store.list().filter(comment => !comment.parentId)
+      return this.openThreads()
         .filter(comment => comment.uri === element.uri)
         .sort((left, right) =>
           left.range.start.line - right.range.start.line
@@ -96,6 +96,11 @@ export class CommentsTreeProvider implements vscode.TreeDataProvider<CommentsTre
         .map(comment => ({ kind: "comment", id: comment.id }));
     }
     return [];
+  }
+
+  /** Thread roots shown in the tree: resolved threads are done, so they are left out. */
+  private openThreads() {
+    return this.store.list().filter(comment => !comment.parentId && !comment.resolved);
   }
 
   dispose(): void {
