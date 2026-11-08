@@ -1,5 +1,5 @@
-// The review as VS Code shows it. The review itself lives in review-relay's
-// server (see relay.ts and store.ts), which validates and stores every
+// The review as VS Code shows it. The review itself lives in the core's
+// server (cmd/review-relay; see relay.ts and store.ts), which validates and stores every
 // change; this is its shape in editor terms: a document URI and a range.
 
 export type CommentSource = "human" | "agent";
@@ -40,7 +40,7 @@ export interface NavigationTarget {
   commentId?: string;
 }
 
-/** A comment as review-relay's API has it: a workspace-relative path and lines. */
+/** A comment as the core's API has it: a workspace-relative path and lines. */
 export interface RelayComment {
   id: string;
   parentId?: string;

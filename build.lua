@@ -1,27 +1,37 @@
 -- lazy.nvim runs this on install and update (`:Lazy build vscode-review-relay`):
--- review-relay, the core this plugin is a frontend of, built into
--- bin/<os>-<arch>/ as the VS Code extension's build puts it (go.mod pins the
--- version). Needs Go.
+-- it puts the core, review-relay, at bin/<os>-<arch>/review-relay(.exe), where
+-- the Neovim plugin (and the VS Code extension's build) look for it.
+--
+-- For now the core is built from this checkout's source (cmd/review-relay),
+-- which needs Go. Installing a prebuilt binary instead (fetched per
+-- platform and checked against its sha256) replaces `from_source` below and
+-- nothing else: whatever installs it only has to leave the executable at
+-- `out`.
 local root = vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':p:h')
 local uname = (vim.uv or vim.loop).os_uname()
 local os_name = ({ Linux = 'linux', Darwin = 'darwin', Windows_NT = 'windows' })[uname.sysname] or uname.sysname:lower()
 local arch = ({ x86_64 = 'amd64', amd64 = 'amd64', arm64 = 'arm64', aarch64 = 'arm64' })[uname.machine] or uname.machine
 local out = table.concat({ root, 'bin', os_name .. '-' .. arch, os_name == 'windows' and 'review-relay.exe' or 'review-relay' }, '/')
-if vim.fn.executable 'go' == 0 then
-  error 'vscode-review-relay: building review-relay needs Go (https://go.dev/dl/)'
+
+local function from_source()
+  if vim.fn.executable 'go' == 0 then
+    error 'vscode-review-relay: building review-relay needs Go (https://go.dev/dl/)'
+  end
+  local output = {}
+  local collect = function(_, data)
+    vim.list_extend(output, data)
+  end
+  local job = vim.fn.jobstart({ 'go', 'build', '-trimpath', '-ldflags=-s -w', '-o', out, './cmd/review-relay' }, {
+    cwd = root,
+    env = { CGO_ENABLED = '0' },
+    on_stdout = collect,
+    on_stderr = collect,
+  })
+  if job <= 0 or vim.fn.jobwait({ job }, 10 * 60 * 1000)[1] ~= 0 then
+    error('vscode-review-relay: go build failed: ' .. table.concat(output, '\n'))
+  end
 end
+
 vim.fn.mkdir(vim.fn.fnamemodify(out, ':h'), 'p')
-local output = {}
-local collect = function(_, data)
-  vim.list_extend(output, data)
-end
-local job = vim.fn.jobstart({ 'go', 'build', '-trimpath', '-ldflags=-s -w', '-o', out, 'github.com/statiolake/review-relay' }, {
-  cwd = root,
-  env = { CGO_ENABLED = '0' }, -- no window: everything an editor uses, built anywhere
-  on_stdout = collect,
-  on_stderr = collect,
-})
-if job <= 0 or vim.fn.jobwait({ job }, 10 * 60 * 1000)[1] ~= 0 then
-  error('vscode-review-relay: go build failed: ' .. table.concat(output, '\n'))
-end
+from_source()
 print('vscode-review-relay: built ' .. out)

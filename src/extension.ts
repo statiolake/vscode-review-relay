@@ -10,10 +10,10 @@ import { RelayConnection } from "./relay";
 import { importLegacyState } from "./migration";
 
 /**
- * The VS Code frontend of a review. The review is review-relay's: each file
- * workspace folder is attached to its review-relay server (relay.ts), which
- * keeps, validates and stores the threads and tells every client of a
- * change. This extension shows them with VS Code's comment UI and writes
+ * The VS Code frontend of a review. The review is the core's (cmd/review-relay,
+ * bundled in bin/): each file workspace folder is attached to its review
+ * server (relay.ts), which keeps, validates and stores the threads and tells
+ * every client of a change. This extension shows them with VS Code's comment UI and writes
  * what the person does back through the same API.
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -51,8 +51,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const dropped = await importLegacyState(context.workspaceState, [...attachedFolders.values()].map(entry => entry.backend));
       if (dropped !== undefined) {
         void vscode.window.showInformationMessage(dropped > 0
-          ? `Review Relay moved this workspace's comments into review-relay; ${dropped} outside the workspace folders were dropped.`
-          : "Review Relay moved this workspace's comments into review-relay.");
+          ? `Review Relay moved this workspace's comments into its review store; ${dropped} outside the workspace folders were dropped.`
+          : "Review Relay moved this workspace's comments into its review store.");
       }
     } catch (error) {
       void vscode.window.showErrorMessage(`Review Relay could not move this workspace's earlier comments: ${error instanceof Error ? error.message : error}`);

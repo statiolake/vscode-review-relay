@@ -13,7 +13,7 @@ test("maps workspace-relative paths to the document URIs VS Code writes, and bac
   assert.equal(relativePath(folder, "untitled:Untitled-1"), undefined);
 });
 
-test("writes through review-relay and mirrors what it keeps", async () => {
+test("writes through the core and mirrors what it keeps", async () => {
   const r = await review();
   try {
     const changes: CommentStoreChange[] = [];
@@ -63,7 +63,7 @@ test("follows what another client of the same review does", async () => {
   }
 });
 
-test("moves the review kept in the workspace state into review-relay, once", async () => {
+test("moves the review kept in the workspace state into the core, once", async () => {
   const r = await review();
   try {
     const at = (line: number) => ({ start: { line, character: 0 }, end: { line, character: 4 } });

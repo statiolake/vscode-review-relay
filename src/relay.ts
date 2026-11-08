@@ -2,18 +2,18 @@ import { ChildProcess, spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 
 /**
- * One workspace folder's review, through `review-relay attach`: a child
- * process that speaks JSON lines and carries review-relay's HTTP API and its
- * event stream. It uses the review already running for the folder (a
- * review-relay window, another editor) or runs one until this connection
- * closes, and reaches the next one by itself when the one it uses goes away.
- * Nothing about a review is decided here.
+ * One workspace folder's review, through `review-relay attach` (the core,
+ * cmd/review-relay): a child process that speaks JSON lines and carries the
+ * review's HTTP API and its event stream. It uses the review already running
+ * for the folder (another editor, `review-relay serve`) or runs one until
+ * this connection closes, and reaches the next one by itself when the one it
+ * uses goes away. Nothing about a review is decided here.
  */
 export interface Attached {
   endpoint: string;
   root: string;
   owner: boolean;
-  session: { diff?: boolean; diffArgs?: string[] | null; root?: string };
+  session: { root?: string };
 }
 
 export interface RelayEvent {
@@ -43,10 +43,8 @@ export class RelayConnection {
   private failure?: Error;
   private stderr = "";
 
-  constructor(executable: string, workspace: string, diffArgs?: readonly string[]) {
-    const args = ["attach", "--workspace", workspace];
-    if (diffArgs) args.push("--", ...diffArgs);
-    this.child = spawn(executable, args, { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+  constructor(executable: string, workspace: string) {
+    this.child = spawn(executable, ["attach", "--workspace", workspace], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     this.child.on("error", error => this.fail(new Error(`Could not run ${executable}: ${error.message}`)));
     this.child.on("exit", code => this.fail(new Error(
       `review-relay attach exited (${code ?? "signal"})${this.stderr.trim() ? `: ${this.stderr.trim()}` : ""}`

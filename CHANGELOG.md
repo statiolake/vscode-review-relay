@@ -2,9 +2,10 @@
 
 ## 0.5.0
 
-- The review is now review-relay's: each workspace folder attaches to its review-relay server (`review-relay attach`), the same one its viewer window and agents use, instead of a store and server inside the extension. Comments, replies, resolve, the overall comment and the agent instructions all go through it, so a review started anywhere shows here and the other way round.
-- The bundled CLI is review-relay's: `comments` commands take `--path` (relative to the workspace folder) instead of `--uri`. Agent instructions come from review-relay.
-- A review kept in the workspace state by an earlier version is moved into review-relay once, with its ids; comments outside the workspace folders are dropped and counted. **Reset Project Data** is gone: review-relay names a corrupted file to move away.
+- The review has a core of its own in this repository: `review-relay`, one Go binary (bundled per platform in `bin/`) that runs the review's loopback server, `review-relay attach` for the editors, and the agent CLI. Each workspace folder attaches to its review; comments, replies, resolve, the overall comment and the agent instructions all go through it, so a review open in VS Code shows in Neovim and the other way round.
+- Review Relay is comments only: no diff mode, no reviewed marks, no viewer window. Diffs are Incremental Diff's, and the standalone review-relay viewer is a separate product with its own reviews.
+- The bundled CLI's `comments` commands take `--path` (relative to the workspace root) instead of `--uri`. `review-relay serve` runs a review with no editor.
+- Reviews are stored in `<user config dir>/vscode-review-relay/workspaces/<hash>/`. A review kept in the workspace state by an earlier version is moved there once, with its ids; comments outside the workspace folders are dropped and counted. **Reset Project Data** is gone: a corrupted file is named, to move away.
 - Comments belong to files inside the workspace's file folders; the overall comment is the first folder's.
 - A Neovim plugin in the same repository (`lua/`, `plugin/`): threads on buffer lines, a panel, a composer, drawn as cards in DevHub's GUI and as virt_lines elsewhere. See the README.
 

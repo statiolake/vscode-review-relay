@@ -3,8 +3,8 @@
 -- A buffer, one line per item (the files, the filter, the threads, the
 -- overall comment) — so `/`, counts, marks and macros work on it — which
 -- DevHub's GUI draws as components (gui.view). Elsewhere it is that text.
--- Keys: <CR> open, <Space> reviewed, r reply, s resolve, f filter,
--- o overall comment, R refresh, q close.
+-- Keys: <CR> open, r reply, s resolve, f filter, o overall comment,
+-- R refresh, q close.
 
 local rr = require 'review_relay'
 local cards = require 'review_relay.cards'
@@ -14,18 +14,12 @@ local M = {}
 local panel = { buf = nil, view = nil, entries = {}, filter = 'all', collapsed = {} }
 M._panel = panel
 
-local STATUS_TONE = { M = 'changed', A = 'added', D = 'removed', R = 'info', C = 'info', T = 'changed', U = 'error' }
-
 local function counts(threads)
   local c = { waiting = 0, answered = 0, resolved = 0 }
   for _, t in ipairs(threads) do
     c[t.status] = c[t.status] + 1
   end
   return c
-end
-
-local function reviewed(file)
-  return file.hash ~= nil and file.hash ~= '' and rr._state.reviewed[file.path] == file.hash
 end
 
 --- The panel's entries: { text = its buffer line, node = fn(ui), kind, … }.
@@ -42,67 +36,27 @@ function M.entries()
     by_path[t.path] = by_path[t.path] or {}
     table.insert(by_path[t.path], t)
   end
-  local diff = state.session.diff == true
-  local title = diff and table.concat(state.session.diffArgs or {}, ' ') or 'files'
-  if title == '' then
-    title = 'git diff'
-  end
   add {
     kind = 'header',
-    text = 'Review  ' .. title,
+    text = 'Review  ' .. vim.fn.fnamemodify(state.root or '', ':t'),
     node = function(ui)
       return ui.hstack {
         gap = 8,
         pad = { 6, 2 },
         ui.text('Review', { size = 'lg', bold = true, tone = 'title' }),
-        ui.badge(title, { mono = true, tone = 'muted' }),
-        diff and ui.badge('diff', { tone = 'info' }) or ui.spacer(0),
         ui.spacer(),
         ui.text(vim.fn.fnamemodify(state.root or '', ':t'), { dim = true, size = 'sm' }),
       }
     end,
   }
-  -- A diff lists its files; a review of the files lists those with threads
-  -- (every file of a repository is no review).
+  -- The files that have threads.
   local files = {}
-  for _, f in ipairs(state.files or {}) do
-    if diff or by_path[f.path] then
-      table.insert(files, f)
-    end
-  end
-  local known = {}
-  for _, f in ipairs(files) do
-    known[f.path] = true
-  end
   for path in pairs(by_path) do
-    if not known[path] then
-      table.insert(files, { path = path })
-    end
+    table.insert(files, { path = path })
   end
   table.sort(files, function(a, b)
     return a.path < b.path
   end)
-  if diff then
-    local total, done = 0, 0
-    for _, f in ipairs(files) do
-      if f.hash and f.hash ~= '' then
-        total = total + 1
-        done = done + (reviewed(f) and 1 or 0)
-      end
-    end
-    add {
-      kind = 'progress',
-      text = ('%d / %d reviewed'):format(done, total),
-      node = function(ui)
-        return ui.hstack {
-          gap = 10,
-          pad = { 2, 2 },
-          ui.progress(total > 0 and done / total or 0, { grow = true }),
-          ui.text(done == total and total > 0 and 'All reviewed' or ('%d / %d reviewed'):format(done, total), { dim = true, size = 'sm' }),
-        }
-      end,
-    }
-  end
   add {
     kind = 'section',
     text = 'FILES',
@@ -130,28 +84,14 @@ function M.entries()
     local indent = 0
     if dir ~= '' then
       local open = not panel.collapsed[dir]
-      local n, all = 0, 0
-      for _, f in ipairs(list) do
-        if f.hash and f.hash ~= '' then
-          all = all + 1
-          n = n + (reviewed(f) and 1 or 0)
-        end
-      end
-      local check = all > 0 and n == all or (n > 0 and 'mixed' or false)
       add {
         kind = 'dir',
         dir = dir,
-        files = list,
         text = (open and '▾ ' or '▸ ') .. dir .. '/',
         node = function(ui)
           return ui.hstack {
             gap = 8,
             pad = { 3, 2 },
-            diff and ui.checkbox(check, {
-              on_click = function()
-                M.toggle_reviewed { kind = 'dir', files = list }
-              end,
-            }) or ui.spacer(0),
             ui.text((open and '▾ ' or '▸ ') .. dir, { dim = true, grow = true }),
           }
         end,
@@ -168,22 +108,10 @@ function M.entries()
       add {
         kind = 'file',
         file = f,
-        text = (dir ~= '' and '  ' or '') .. (f.status and (f.status .. ' ') or '') .. f.path .. (n > 0 and ('  ' .. n) or ''),
+        text = (dir ~= '' and '  ' or '') .. f.path .. (n > 0 and ('  ' .. n) or ''),
         node = function(ui)
           local row = { gap = 8, pad = { 3, 2 }, indent = indent }
-          if diff then
-            table.insert(row, ui.checkbox(reviewed(f), {
-              on_click = function()
-                M.toggle_reviewed { kind = 'file', file = f }
-              end,
-            }))
-            table.insert(row, ui.text(f.status or ' ', { mono = true, bold = true, tone = STATUS_TONE[f.status] or 'muted' }))
-          end
-          local label = { { name, strike = f.status == 'D' or nil } }
-          if f.oldPath then
-            table.insert(label, { '  ← ' .. vim.fn.fnamemodify(f.oldPath, ':t'), dim = true })
-          end
-          table.insert(row, ui.text(label, { grow = true, dim = reviewed(f) or nil }))
+          table.insert(row, ui.text(name, { grow = true }))
           for _, s in ipairs { 'waiting', 'answered', 'resolved' } do
             if c[s] > 0 then
               table.insert(row, ui.pill(c[s], { tone = cards.tone(config, s) }))
@@ -281,7 +209,6 @@ local KEYS = {
   { '⏎', 'open' },
   { 'r', 'reply' },
   { 's', 'resolve' },
-  { '␣', 'reviewed' },
   { 'f', 'filter' },
   { 'o', 'overall' },
   { 'q', 'close' },
@@ -316,38 +243,6 @@ end
 rr._panel_thread = function()
   local e = entry_at()
   return e and e.thread or nil
-end
-
-local function set_reviewed(files, on)
-  local pending = #files
-  for _, f in ipairs(files) do
-    rr._call('PUT', '/v1/reviewed', { path = f.path, hash = on and f.hash or '' }, function()
-      pending = pending - 1
-      if pending == 0 then
-        rr.refresh()
-      end
-    end)
-  end
-end
-
---- Toggle reviewed for the file (or every file of the directory) here.
-function M.toggle_reviewed(e)
-  e = e or entry_at()
-  if not e or not rr._state.session.diff then
-    return
-  end
-  if e.kind == 'file' and e.file.hash and e.file.hash ~= '' then
-    set_reviewed({ e.file }, not reviewed(e.file))
-  elseif e.kind == 'dir' then
-    local all, files = true, {}
-    for _, f in ipairs(e.files) do
-      if f.hash and f.hash ~= '' then
-        table.insert(files, f)
-        all = all and reviewed(f)
-      end
-    end
-    set_reviewed(files, not all)
-  end
 end
 
 function M.set_filter(filter)
@@ -421,9 +316,6 @@ function M.toggle_focus()
   map('<CR>', function()
     M.open()
   end, 'open')
-  map('<Space>', function()
-    M.toggle_reviewed()
-  end, 'reviewed')
   map('r', function()
     rr.reply()
   end, 'reply')

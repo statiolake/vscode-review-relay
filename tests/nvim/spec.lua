@@ -1,4 +1,4 @@
--- Headless checks of the Neovim frontend against the real review-relay.
+-- Headless checks of the Neovim frontend against the real core (bin/review-relay).
 -- Run by tests/nvim/run.sh (cwd: a fresh git repository with a.txt).
 vim.cmd 'runtime plugin/review_relay.lua'
 local failures = 0
@@ -93,9 +93,20 @@ end, 20), rr._state.comments)
 -- Another client (an agent through the CLI) replies: it shows here.
 local cli = rr.executable()
 local reply_out = vim.fn.system { cli, '--workspace', root, 'comments', 'reply', root_id, '--path', 'a.txt', '--line', '2', '--body', 'Because.' }
-check('an agent reply arrives by the event stream', wait(function() return #rr._state.comments == 2 end), { reply_out, vim.fn.glob(vim.env.TMPDIR .. '/review-relay/sessions/*', false, true), rr._state.client and rr._state.client.stderr, vim.fn.system { cli, '--workspace', root, 'health' } })
+check('an agent reply arrives by the event stream', wait(function() return #rr._state.comments == 2 end), { reply_out, vim.fn.glob(vim.env.TMPDIR .. '/vscode-review-relay/sessions/*', false, true), rr._state.client and rr._state.client.stderr, vim.fn.system { cli, '--workspace', root, 'health' } })
 local t = rr.threads()[1]
 check('the thread is answered', t and t.status == 'answered')
+
+-- An agent starts a thread of its own (from a subdirectory: the CLI finds
+-- the review containing it), and sends the editor there.
+vim.fn.mkdir(root .. '/sub', 'p')
+local add_out = vim.fn.system { cli, '--workspace', root .. '/sub', 'comments', 'add', '--path', 'a.txt', '--line', '4', '--body', 'And five?', '--author', 'Claude' }
+check('an agent comment shows at once', wait(function() return #rr.threads() == 2 end), add_out)
+check('on its line, as the agent\'s', #rr.threads_at(buf, 5) == 1 and rr.threads_at(buf, 5)[1].root.source == 'agent', rr.threads())
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+local agent_id = vim.json.decode(add_out).comment.id
+vim.fn.system { cli, '--workspace', root, 'navigate', '--comment', agent_id }
+check('navigate moves the cursor to it', wait(function() return vim.api.nvim_win_get_cursor(0)[1] == 5 end), vim.api.nvim_win_get_cursor(0))
 
 -- Resolve from the thread's line.
 vim.api.nvim_win_set_cursor(0, { 3, 0 })
@@ -132,7 +143,15 @@ rr.decorate(buf)
 require('review_relay.panel').toggle_focus()
 local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
 check('the panel lists the thread', vim.tbl_contains(lines, 'a.txt:3 [Resolved] Why two?'), lines)
+check('and the file that has threads', vim.tbl_contains(lines, 'a.txt  2'), lines)
 vim.cmd 'close'
+
+-- The review is comments only: :ReviewRelay takes no diff.
+local refused
+vim.notify = function(msg) refused = msg end
+vim.cmd 'ReviewRelay HEAD~'
+vim.notify = notify
+check(':ReviewRelay HEAD~ is refused', refused and refused:find 'unknown subcommand' ~= nil, refused)
 
 -- Leaving stops the review this Neovim ran.
 rr.detach()

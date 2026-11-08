@@ -49,26 +49,28 @@ vim.api.nvim_create_user_command('ReviewRelay', function(o)
   if sub and #o.fargs == 1 then
     return sub(o)
   end
-  -- :ReviewRelay [git diff args]: the panel, joining the review running for
-  -- the directory or starting one (for the args; none: the files).
+  if #o.fargs > 0 then
+    return vim.notify(('review-relay: unknown subcommand %q'):format(table.concat(o.fargs, ' ')), vim.log.levels.ERROR)
+  end
+  -- :ReviewRelay: the panel, joining the review running for the directory
+  -- or starting one.
   local rr = require 'review_relay'
-  rr.attach({ diff_args = #o.fargs > 0 and o.fargs or nil }, function(ok)
+  rr.attach({}, function(ok)
     if ok then
       require('review_relay.panel').toggle_focus()
     end
   end)
 end, {
-  nargs = '*',
+  nargs = '?',
   range = true,
   complete = function(lead)
     local items = vim.tbl_keys(subcommands)
-    vim.list_extend(items, { 'main...HEAD', 'HEAD~', '--cached', '--' })
     table.sort(items)
     return vim.tbl_filter(function(item)
       return item:sub(1, #lead) == lead
     end, items)
   end,
-  desc = 'Review Relay: the panel ([git diff args] for a review it starts), or comment / reply / resolve / edit / delete / overall / next / prev / refresh / stop',
+  desc = 'Review Relay: the panel, or comment / reply / resolve / edit / delete / overall / next / prev / refresh / stop',
 })
 
 -- Join a review already running for the directory, once Neovim is up (at

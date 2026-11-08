@@ -9,7 +9,7 @@ import {
 } from "./model";
 
 /**
- * One workspace folder's review: review-relay's API, reached through
+ * One workspace folder's review: the core's API, reached through
  * `review-relay attach` (relay.ts) or, in tests, a stand-in.
  */
 export interface ReviewBackend {
@@ -42,7 +42,7 @@ interface Folder {
 
 /**
  * The review of the workspace's folders, as VS Code shows it: a mirror of
- * what review-relay's servers hold, read again on every change they
+ * what the core's servers hold, read again on every change they
  * announce. Every write goes to the server, which validates and stores it
  * and tells every client, this one included.
  */

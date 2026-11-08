@@ -1,7 +1,7 @@
 import { RelayComment } from "./model";
 import { relativePath, ReviewBackend } from "./store";
 
-/** Where Review Relay kept a workspace's review before review-relay held it. */
+/** Where Review Relay kept a workspace's review before the core held it. */
 export const LEGACY_STORAGE_KEY = "reviewRelay.state.v1";
 
 export interface WorkspaceMemento {
@@ -23,8 +23,8 @@ interface LegacyComment {
 
 /**
  * Moves the review this extension kept in the workspace state (up to 0.4)
- * into the folders' review-relay reviews, ids and authors kept, then forgets
- * it. review-relay validates what it imports and skips ids it has, so a
+ * into the folders' reviews in the core, ids and authors kept, then forgets
+ * it. The core validates what it imports and skips ids it has, so a
  * second run after a failure adds nothing twice. Answers how many comments
  * were in no workspace folder (and so were dropped), or undefined when
  * there was nothing to move.

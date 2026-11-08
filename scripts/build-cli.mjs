@@ -17,9 +17,9 @@ for (const [goos, goarch] of targets) {
   rmSync(directory, { recursive: true, force: true });
   mkdirSync(directory, { recursive: true });
   const output = join(directory, goos === "windows" ? "review-relay.exe" : "review-relay");
-  // review-relay itself (go.mod pins it as a tool), built without cgo: no
-  // window, everything the extension and the Neovim plugin use.
-  const result = spawnSync("go", ["build", "-trimpath", "-ldflags=-s -w", "-o", output, "github.com/statiolake/review-relay"], {
+  // The core (cmd/review-relay), from this repository's own source; pure Go,
+  // so it cross-compiles anywhere.
+  const result = spawnSync("go", ["build", "-trimpath", "-ldflags=-s -w", "-o", output, "./cmd/review-relay"], {
     stdio: "inherit", env: { ...process.env, GOOS: goos, GOARCH: goarch, CGO_ENABLED: "0" }
   });
   if (result.status !== 0) process.exit(result.status ?? 1);

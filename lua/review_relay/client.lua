@@ -1,9 +1,9 @@
 -- require('review_relay.client'): one review, through `review-relay attach`.
 --
--- The review is review-relay's (its server keeps, validates and stores the
+-- The review is the core's (its server keeps, validates and stores the
 -- threads); this is a pipe to it. `review-relay attach` is a child process
 -- speaking JSON lines: it uses the review already running for the directory
--- or runs one (no window) until this job ends, carries the HTTP API
+-- or runs one until this job ends, carries the HTTP API
 -- (request) and its events (state, navigate), and reaches the next review
 -- by itself when the one it uses goes away (a new `attached`). No HTTP
 -- client, discovery or lifecycle lives in Lua.
@@ -14,7 +14,6 @@ Client.__index = Client
 --- Start attaching. opts:
 ---   cmd        the review-relay executable
 ---   dir        the directory whose review it is
----   diff_args  git diff arguments for a review it starts (nil: the files)
 ---   no_start   only use a review that is already running
 ---   on_attached(info)  { endpoint, root, owner, session }; again after a reconnect
 ---   on_event(name, data)
@@ -24,10 +23,6 @@ function Client.start(opts)
   local argv = { opts.cmd, 'attach', '--workspace', opts.dir }
   if opts.no_start then
     table.insert(argv, '--no-start')
-  end
-  if opts.diff_args then
-    table.insert(argv, '--')
-    vim.list_extend(argv, opts.diff_args)
   end
   local ok, job = pcall(vim.fn.jobstart, argv, {
     on_stdout = function(_, data)

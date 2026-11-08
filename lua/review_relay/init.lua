@@ -1,11 +1,12 @@
 -- require('review_relay'): Review Relay's Neovim frontend.
 --
--- The review is review-relay's: its server keeps, validates and stores the
--- threads and tells every client of a change (the VS Code extension, the
--- viewer window, agents through the CLI, this). This module shows the
--- review in Neovim and writes what you do back through the same API, over
--- `review-relay attach` (client.lua). Nothing about a review is decided
--- here.
+-- The review is the core's (cmd/review-relay in this repository): its server
+-- keeps, validates and stores the threads and tells every client of a
+-- change (the VS Code extension, agents through the CLI, this). This module
+-- shows the review in Neovim and writes what you do back through the same
+-- API, over `review-relay attach` (client.lua). Nothing about a review is
+-- decided here, and nothing about diffs is known: a diff tool that shows the
+-- work tree's files in their own buffers gets threads there for free.
 --
 -- * A thread belongs to lines of a file of the work tree. The file is the
 --   buffer's own (its name, under the review's root), so a thread shows in
@@ -27,13 +28,12 @@ local compose = require 'review_relay.compose'
 local M = {}
 
 M.config = {
-  -- The review-relay executable; nil: the one build.lua built in this
-  -- plugin (bin/<os>-<arch>/review-relay), the same the VS Code extension
-  -- ships.
+  -- The core's executable; nil: the one build.lua put in this plugin
+  -- (bin/<os>-<arch>/review-relay), the same the VS Code extension ships.
   cmd = nil,
-  -- Use a review that is already running for the directory (started by an
-  -- agent, a window, another editor) when Neovim starts and when the
-  -- directory changes, without starting one.
+  -- Use a review that is already running for the directory (another
+  -- editor, `review-relay serve`) when Neovim starts and when the directory
+  -- changes, without starting one.
   auto_attach = true,
   -- Your name on what you write; nil: `git config user.name`.
   author = nil,
@@ -59,11 +59,8 @@ M.config = {
 local state = {
   client = nil,
   root = nil,
-  session = {},
   comments = {},
   overall = '',
-  files = {},
-  reviewed = {},
   seen = nil,
   bufs = {}, -- buf -> { anchors = { [thread id] = { mark, line, endLine } }, cards = { [id] = handle } }
 }
@@ -457,20 +454,10 @@ local function announce_replies(comments)
   end
 end
 
---- Read the review again: the comments, and the files with their reviewed marks.
+--- Read the review again.
 function M.refresh(cb)
   if not state.client then
     return
-  end
-  local pending = 2
-  local function done()
-    pending = pending - 1
-    if pending == 0 then
-      changed()
-      if cb then
-        cb()
-      end
-    end
   end
   state.client:request('GET', '/v1/comments', nil, function(ok, data)
     if ok then
@@ -478,14 +465,10 @@ function M.refresh(cb)
       state.comments = data.comments or {}
       state.overall = data.overall or ''
     end
-    done()
-  end)
-  state.client:request('GET', '/v1/files', nil, function(ok, data)
-    if ok then
-      state.files = data.files or {}
-      state.reviewed = data.reviewed or {}
+    changed()
+    if cb then
+      cb()
     end
-    done()
   end)
 end
 
@@ -542,7 +525,6 @@ end
 local function on_attached(info, first)
   local was = state.root
   state.root = vim.fn.resolve(info.root)
-  state.session = info.session or {}
   state.endpoint = info.endpoint
   if was and was ~= state.root then
     for buf in pairs(state.bufs) do
@@ -550,16 +532,13 @@ local function on_attached(info, first)
     end
   end
   if first then
-    local diff = state.session.diff and table.concat(state.session.diffArgs or {}, ' ') or nil
-    local what = diff and ('the diff ' .. (diff ~= '' and diff or 'of the work tree')) or 'the files'
-    notify((info.owner and 'started the review of %s' or 'joined the review of %s'):format(what))
+    notify((info.owner and 'started the review of %s' or 'joined the review of %s'):format(vim.fn.fnamemodify(state.root, ':~')))
   end
   M.refresh()
 end
 
 --- Attach to the review of the current directory: the one running, or one
---- started for diff_args (nil: the files) unless no_start. cb(ok) once
---- attached or failed.
+--- this Neovim runs unless no_start. cb(ok) once attached or failed.
 function M.attach(opts, cb)
   opts = opts or {}
   if state.client and state.client:running() then
@@ -585,7 +564,6 @@ function M.attach(opts, cb)
   client = Client.start {
     cmd = cmd,
     dir = vim.fn.getcwd(),
-    diff_args = opts.diff_args,
     no_start = opts.no_start,
     on_attached = function(info)
       on_attached(info, first)
@@ -633,7 +611,7 @@ function M.detach()
   for buf in pairs(state.bufs) do
     undecorate(buf)
   end
-  state.root, state.comments, state.files, state.overall, state.seen = nil, {}, {}, '', nil
+  state.root, state.comments, state.overall, state.seen = nil, {}, '', nil
   for _, fn in ipairs(listeners) do
     pcall(fn)
   end
