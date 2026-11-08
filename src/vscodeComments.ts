@@ -25,6 +25,7 @@ export class VsCodeComments implements vscode.Disposable {
     this.subscriptions.push(
       store.onDidChange(change => {
         if (change.comments) this.render(change.threadRanges === true);
+        else if (change.threadRanges) this.moveThreads();
       }),
       vscode.workspace.onDidChangeTextDocument(event => this.queueRangeSync(event.document.uri))
     );
@@ -244,12 +245,14 @@ export class VsCodeComments implements vscode.Disposable {
       }
       if (existing) {
         applyStatus(existing, comments);
+        // A move this window sent is still on its way: VS Code's range is newer.
+        const moveRange = updateRanges && !this.store.isMoving(root.id);
         if (!sameComments(this.threadModels.get(root.id), comments)) {
-          if (updateRanges) existing.range = range;
+          if (moveRange) existing.range = range;
           if (existing.comments.some(comment => comment.mode === vscode.CommentMode.Editing)) continue;
           existing.comments = comments.map(comment => this.renderComment(comment));
           this.threadModels.set(root.id, comments);
-        } else if (updateRanges) {
+        } else if (moveRange) {
           existing.range = range;
         }
       } else {
@@ -271,6 +274,16 @@ export class VsCodeComments implements vscode.Disposable {
       this.threads.delete(id);
       this.threadModels.delete(id);
       this.created.delete(id);
+    }
+  }
+
+  /** Another client moved threads (an editor whose lines moved them). */
+  private moveThreads(): void {
+    for (const root of this.store.list().filter(comment => !comment.parentId)) {
+      const thread = this.threads.get(root.id);
+      if (!thread?.range || this.store.isMoving(root.id)) continue;
+      if (thread.range.start.line === root.range.start.line && thread.range.end.line === root.range.end.line) continue;
+      thread.range = new vscode.Range(root.range.start.line, 0, root.range.end.line, 0);
     }
   }
 

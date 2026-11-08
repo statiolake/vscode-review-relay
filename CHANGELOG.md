@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- The review is now review-relay's: each workspace folder attaches to its review-relay server (`review-relay attach`), the same one its viewer window and agents use, instead of a store and server inside the extension. Comments, replies, resolve, the overall comment and the agent instructions all go through it, so a review started anywhere shows here and the other way round.
+- The bundled CLI is review-relay's: `comments` commands take `--path` (relative to the workspace folder) instead of `--uri`. Agent instructions come from review-relay.
+- A review kept in the workspace state by an earlier version is moved into review-relay once, with its ids; comments outside the workspace folders are dropped and counted. **Reset Project Data** is gone: review-relay names a corrupted file to move away.
+- Comments belong to files inside the workspace's file folders; the overall comment is the first folder's.
+- A Neovim plugin in the same repository (`lua/`, `plugin/`): threads on buffer lines, a panel, a composer, drawn as cards in DevHub's GUI and as virt_lines elsewhere. See the README.
+
 ## 0.4.3
 
 - The **Comments** tree hides resolved threads, and files left with only resolved threads. Reopening a thread brings it back.

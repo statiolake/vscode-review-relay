@@ -1,223 +1,89 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ReviewComment, ReviewRelayState } from "../src/model";
-import { CommentStore, CommentStoreChange } from "../src/store";
+import { importLegacyState, LEGACY_STORAGE_KEY } from "../src/migration";
+import { absoluteUri, CommentStoreChange, relativePath } from "../src/store";
+import { review } from "./review";
 
-const ids = {
-  one: "00000000-0000-4000-8000-000000000001",
-  two: "00000000-0000-4000-8000-000000000002",
-  root: "00000000-0000-4000-8000-000000000003",
-  first: "00000000-0000-4000-8000-000000000004",
-  second: "00000000-0000-4000-8000-000000000005",
-  comment: "00000000-0000-4000-8000-000000000006",
-  missing: "00000000-0000-4000-8000-000000000099"
-} as const;
-
-function comment(id: string, body = id): ReviewComment {
-  return {
-    id,
-    uri: "file:///repo/app.ts",
-    range: { start: { line: 2, character: 0 }, end: { line: 2, character: 0 } },
-    body,
-    author: "Human",
-    source: "human",
-    createdAt: "2026-01-01T00:00:00.000Z"
-  };
-}
-
-test("updates a comment body without changing its identity", async () => {
-  const original: ReviewComment = {
-    id: ids.comment,
-    uri: "file:///repo/app.ts",
-    range: { start: { line: 2, character: 0 }, end: { line: 2, character: 0 } },
-    body: "Before",
-    author: "Human",
-    source: "human",
-    createdAt: "2026-01-01T00:00:00.000Z"
-  };
-  let persisted = [original];
-  const store = new CommentStore({
-    load: () => ({ comments: persisted, overall: "" }),
-    save: async state => { persisted = [...state.comments]; }
-  });
-
-  assert.equal(await store.update(ids.comment, "  After  "), true);
-  assert.deepEqual(persisted, [{ ...original, body: "After" }]);
-  assert.equal(await store.update(ids.missing, "Nope"), false);
+test("maps workspace-relative paths to the document URIs VS Code writes, and back", () => {
+  const folder = "file:///home/me/my%20repo";
+  assert.equal(absoluteUri(folder, "src/a b.ts"), "file:///home/me/my%20repo/src/a%20b.ts");
+  assert.equal(relativePath(folder, "file:///home/me/my%20repo/src/a%20b.ts"), "src/a b.ts");
+  assert.equal(relativePath(folder, "file:///home/me/other/a.ts"), undefined);
+  assert.equal(relativePath(folder, "file:///home/me/my%20repo"), undefined);
+  assert.equal(relativePath(folder, "untitled:Untitled-1"), undefined);
 });
 
-test("reports remaining comments after removal", async () => {
-  const store = new CommentStore({
-    load: () => ({
-      comments: [comment(ids.one, "one"), comment(ids.two, "two")],
-      overall: ""
-    }),
-    save: async () => undefined
-  });
+test("writes through review-relay and mirrors what it keeps", async () => {
+  const r = await review();
+  try {
+    const changes: CommentStoreChange[] = [];
+    r.store.onDidChange(change => changes.push(change));
+    const root = await r.store.add({ uri: r.uri("app.ts"), line: 2, body: "  Why?  ", author: "Human", source: "human" });
+    assert.equal(root.body, "Why?");
+    assert.deepEqual(r.store.list().map(comment => [comment.uri, comment.range.start.line]), [[r.uri("app.ts"), 2]]);
 
-  assert.deepEqual(await store.remove(ids.one), { removed: 1, remainingComments: 1 });
-  assert.deepEqual(await store.remove(ids.missing), { removed: 0, remainingComments: 1 });
+    const reply = await r.store.reply(root.id, { uri: r.uri("lib/moved.ts"), line: 7, endLine: 9, body: "Moved it" });
+    assert.equal(reply?.parentId, root.id);
+    assert.ok(r.store.thread(root.id).every(comment =>
+      comment.uri === r.uri("lib/moved.ts") && comment.range.start.line === 7 && comment.range.end.line === 9));
+
+    assert.equal((await r.store.setResolved(reply!.id, true))?.resolved, true);
+    // A move from an editor reopens nothing and adds nothing.
+    assert.equal(await r.store.setThreadRange(root.id, { start: { line: 8, character: 0 }, end: { line: 10, character: 0 } }), true);
+    assert.equal(r.store.list().find(comment => comment.id === root.id)?.resolved, true);
+    assert.equal(r.store.thread(root.id).length, 2);
+    assert.equal(r.store.isMoving(root.id), false);
+
+    assert.equal(await r.store.update(reply!.id, "Edited"), true);
+    assert.equal(r.store.thread(root.id)[1].body, "Edited");
+    await r.store.setOverall("Overall");
+    assert.equal(r.store.getOverall(), "Overall");
+    assert.deepEqual(await r.store.remove(reply!.id), { removed: 1, remainingComments: 1 });
+    assert.ok(changes.some(change => change.comments) && changes.some(change => change.overall));
+    await assert.rejects(r.store.add({ uri: "file:///elsewhere/a.ts", line: 0, body: "x" }), /in none/);
+    await assert.rejects(r.store.add({ uri: r.uri("a.ts"), line: 0, body: "   " }), /body is required/);
+    await r.store.clearReview();
+    assert.deepEqual([r.store.list().length, r.store.getOverall()], [0, ""]);
+  } finally { r.close(); }
 });
 
-test("stores replies in a thread and cascades deletion from their parent", async () => {
-  const root = comment(ids.root, "root");
-  let persisted = [root];
-  const store = new CommentStore({
-    load: () => ({ comments: persisted, overall: "" }),
-    save: async state => { persisted = [...state.comments]; }
-  });
-
-  const reply = await store.reply(ids.root, {
-    uri: "file:///repo/moved.ts",
-    line: 7,
-    body: "  Reply  ",
-    author: "Codex",
-    source: "agent"
-  });
-  assert.ok(reply);
-  assert.deepEqual(store.thread(ids.root).map(item => item.uri), ["file:///repo/moved.ts", "file:///repo/moved.ts"]);
-  assert.equal(reply.parentId, ids.root);
-  assert.equal(reply.body, "Reply");
-  assert.equal(store.rootId(reply.id), ids.root);
-  assert.deepEqual(store.thread(ids.root).map(item => item.range.start.line), [7, 7]);
-  assert.deepEqual(store.thread(ids.root).map(item => item.id), [ids.root, reply.id]);
-  assert.equal(await store.reply(ids.missing, { uri: "file:///repo/app.ts", line: 7, body: "No parent" }), undefined);
-
-  const secondReply = await store.reply(reply.id, { uri: "file:///repo/app.ts", line: 7, body: "Follow-up", author: "Human", source: "human" });
-  assert.ok(secondReply);
-  assert.equal(secondReply.parentId, ids.root);
-  assert.deepEqual(store.thread(ids.root).map(item => item.id), [ids.root, reply.id, secondReply.id]);
-
-  assert.equal(await store.setThreadRange(secondReply.id, {
-    start: { line: 9, character: 1 },
-    end: { line: 10, character: 2 }
-  }), true);
-  assert.deepEqual(store.thread(ids.root).map(item => item.range), [
-    { start: { line: 9, character: 1 }, end: { line: 10, character: 2 } },
-    { start: { line: 9, character: 1 }, end: { line: 10, character: 2 } },
-    { start: { line: 9, character: 1 }, end: { line: 10, character: 2 } }
-  ]);
-  assert.equal(await store.setThreadRange(ids.root, store.thread(ids.root)[0].range), false);
-
-  assert.deepEqual(await store.remove(ids.root), { removed: 3, remainingComments: 0 });
-  assert.deepEqual(persisted, []);
+test("follows what another client of the same review does", async () => {
+  const mine = await review();
+  const theirs = await review(mine.dir);
+  try {
+    assert.equal(theirs.relay.current?.owner, false);
+    assert.equal(theirs.relay.current?.endpoint, mine.relay.current?.endpoint);
+    const seen = new Promise<void>(resolve => mine.store.onDidChange(change => { if (change.comments) resolve(); }));
+    await theirs.store.add({ uri: theirs.uri("a.ts"), line: 1, body: "From the other editor" });
+    await seen;
+    assert.deepEqual(mine.store.list().map(comment => comment.body), ["From the other editor"]);
+  } finally {
+    theirs.close();
+    mine.close();
+  }
 });
 
-test("deleting one reply preserves its parent and sibling replies", async () => {
-  const root = comment(ids.root, "root");
-  const first = { ...comment(ids.first, "first"), parentId: ids.root };
-  const second = { ...comment(ids.second, "second"), parentId: ids.root };
-  const store = new CommentStore({
-    load: () => ({ comments: [root, first, second], overall: "" }),
-    save: async () => undefined
-  });
-
-  assert.deepEqual(await store.remove(ids.first), { removed: 1, remainingComments: 2 });
-  assert.deepEqual(store.list().map(item => item.id), [ids.root, ids.second]);
-});
-
-test("persists overall review text without the legacy AI export preference", async () => {
-  let saved: ReviewRelayState | undefined;
-  const store = new CommentStore({
-    load: () => ({ comments: [], overall: "", includeAiGenerated: false }),
-    save: async state => { saved = { ...state, comments: [...state.comments] }; }
-  });
-
-  await store.setOverall("Check the error-handling strategy.");
-
-  assert.equal(store.getOverall(), "Check the error-handling strategy.");
-  assert.deepEqual(saved, {
-    comments: [],
-    overall: "Check the error-handling strategy."
-  });
-});
-
-test("migrates the legacy thread filter out of persisted state", async () => {
-  let persisted: ReviewRelayState | undefined;
-  const store = new CommentStore({
-    load: () => ({
-      comments: [],
-      overall: "",
-      showAgentLastOnly: true
-    }),
-    save: async state => { persisted = state; }
-  });
-
-  await store.setOverall("No custom thread filter remains.");
-  assert.deepEqual(persisted, { comments: [], overall: "No custom thread filter remains." });
-});
-
-test("reports which part of the state changed", async () => {
-  const store = new CommentStore({
-    load: () => ({ comments: [], overall: "" }),
-    save: async () => undefined
-  });
-  const changes: CommentStoreChange[] = [];
-  store.onDidChange(change => changes.push(change));
-
-  const added = await store.add({
-    uri: "file:///repo/app.ts",
-    line: 2,
-    body: "Comment",
-    source: "agent"
-  });
-  await store.setOverall("Overall");
-  await store.remove(added.id);
-
-  assert.deepEqual(changes, [
-    { comments: true },
-    { overall: true },
-    { comments: true }
-  ]);
-});
-
-test("clear review reports every state domain it actually clears", async () => {
-  const store = new CommentStore({
-    load: () => ({
-      comments: [comment(ids.one)],
-      overall: "Overall"
-    }),
-    save: async () => undefined
-  });
-  const changes: CommentStoreChange[] = [];
-  store.onDidChange(change => changes.push(change));
-
-  await store.clearReview();
-
-  assert.deepEqual(changes, [{ comments: true, overall: true }]);
-});
-
-test("fails fast without saving when persisted state is corrupted", () => {
-  let saveCount = 0;
-  assert.throws(() => new CommentStore({
-    load: () => ({
-      comments: [{ ...comment(ids.one), uri: "not-a-uri" }],
-      overall: ""
-    }),
-    save: async () => { saveCount += 1; }
-  }), /valid absolute VS Code document URI/);
-  assert.equal(saveCount, 0);
-});
-
-test("resolves a thread on its root and a new reply reopens it", async () => {
-  let persisted: ReviewComment[] = [];
-  const store = new CommentStore({
-    load: () => ({ comments: [], overall: "" }),
-    save: async state => { persisted = [...state.comments]; }
-  });
-  const root = await store.add({ uri: "file:///repo/app.ts", line: 1, body: "Root", source: "human" });
-  const reply = await store.reply(root.id, { uri: "file:///repo/app.ts", line: 1, body: "Reply" });
-
-  const resolved = await store.setResolved(reply!.id, true);
-  assert.equal(resolved?.id, root.id);
-  assert.deepEqual(persisted.map(comment => comment.resolved), [true, undefined]);
-
-  await store.reply(root.id, { uri: "file:///repo/app.ts", line: 1, body: "Again" });
-  assert.equal("resolved" in persisted[0], false);
-
-  await store.setResolved(root.id, true);
-  const reopened = await store.setResolved(root.id, false);
-  assert.equal(reopened && "resolved" in reopened, false);
-  assert.equal("resolved" in persisted[0], false);
-  assert.equal(await store.setResolved(ids.missing, true), undefined);
+test("moves the review kept in the workspace state into review-relay, once", async () => {
+  const r = await review();
+  try {
+    const at = (line: number) => ({ start: { line, character: 0 }, end: { line, character: 4 } });
+    const root = "00000000-0000-4000-8000-000000000001";
+    const memory = new Map<string, unknown>([[LEGACY_STORAGE_KEY, {
+      overall: "Keep this",
+      comments: [
+        { id: root, uri: r.uri("a.ts"), range: at(3), body: "Root", author: "Human", source: "human", createdAt: "2026-01-01T00:00:00.000Z", resolved: true },
+        { id: "00000000-0000-4000-8000-000000000002", parentId: root, uri: r.uri("a.ts"), range: at(3), body: "Reply", author: "AI", source: "agent", createdAt: "2026-01-01T00:01:00.000Z" },
+        { id: "00000000-0000-4000-8000-000000000003", uri: "file:///elsewhere/b.ts", range: at(0), body: "Lost", author: "Human", source: "human", createdAt: "2026-01-01T00:02:00.000Z" }
+      ]
+    }]]);
+    const storage = { get: <T>(key: string) => memory.get(key) as T | undefined, update: async (key: string, value: unknown) => { memory.set(key, value); } };
+    assert.equal(await importLegacyState(storage, [r.backend]), 1);
+    assert.equal(memory.get(LEGACY_STORAGE_KEY), undefined);
+    assert.equal(await importLegacyState(storage, [r.backend]), undefined);
+    const state = await r.backend.request<{ overall: string; comments: Array<{ id: string; body: string; resolved?: boolean }> }>("GET", "/v1/comments");
+    assert.equal(state.overall, "Keep this");
+    assert.deepEqual(state.comments.map(comment => [comment.id, comment.body, comment.resolved ?? false]), [
+      [root, "Root", true], ["00000000-0000-4000-8000-000000000002", "Reply", false]
+    ]);
+  } finally { r.close(); }
 });

@@ -1,6 +1,8 @@
 # Review Relay
 
-Review Relay turns VS Code comments into a live review channel between you and local coding agents.
+Review Relay turns editor comments into a live review channel between you and local coding agents — in VS Code, and in Neovim (with DevHub's GUI when it draws Neovim).
+
+The review itself is [review-relay](https://github.com/statiolake/review-relay)'s: one server per workspace keeps, validates and stores the threads and tells every client of a change — this extension, the Neovim plugin below, review-relay's own viewer window, and agents through its CLI. Both editors here are thin frontends of it; see [docs/architecture.md](docs/architecture.md) for why.
 
 Add comments to code with VS Code's native comment UI. Agents can read them, reply in the same threads, add their own comments, and navigate your editor through a loopback-only API and bundled CLI. For agents running in containers or without local access, copy the review as Markdown instead.
 
@@ -61,16 +63,18 @@ If an agent cannot access the host loopback interface or filesystem, use **Copy 
 - Document URIs are parsed with VS Code-compatible semantics.
 - No review data is sent to an external service by this extension.
 
-If saved workspace data is corrupted, Review Relay stops before rendering it and shows the validation error. **Reset Project Data** removes only Review Relay's opaque state for that workspace and reloads the window.
+Reviews are stored by review-relay outside the workspace (`<user config dir>/review-relay/workspaces/<hash>/`). A review kept in VS Code's workspace state by an earlier version is moved there once, ids kept; comments on files outside the workspace folders are dropped (and counted). If the stored review is corrupted, review-relay refuses to open it and names the file to move away.
+
+Each file workspace folder is one review; comments belong to files inside the folders (not untitled documents or other schemes), and the overall comment is the first folder's.
 
 ## CLI and API
 
-The copied Agent Instructions are the recommended reference because they include the live executable path and the endpoint appropriate for the CLI environment. The core CLI commands are:
+The bundled CLI is review-relay's. The copied Agent Instructions are the recommended reference because they include the live executable path. The core commands are:
 
 ```text
-review-relay comments list [--unresolved]
-review-relay comments add --uri URI --line N --body TEXT
-review-relay comments reply COMMENT_ID --uri URI --line N [--end-line N] --body TEXT
+review-relay comments list [--path PATH] [--unresolved]
+review-relay comments add --path PATH --line N [--end-line N] --body TEXT
+review-relay comments reply COMMENT_ID --path PATH --line N [--end-line N] --body TEXT
 review-relay comments resolve COMMENT_ID
 review-relay comments unresolve COMMENT_ID
 review-relay comments remove COMMENT_ID
@@ -78,16 +82,54 @@ review-relay comments clear
 review-relay navigate --comment COMMENT_ID
 ```
 
-The HTTP API exposes the corresponding `/health`, `/v1/comments` (`?resolved=false` for open threads only), `/v1/comments/:id/replies`, `/v1/comments/:id/resolved` (PUT `{ "resolved": true }`), and `/v1/navigate` resources. Line numbers are zero-based.
+Paths are relative to the workspace folder and line numbers are zero-based. A reply moves the whole thread to its location. See review-relay's README for the HTTP API. (Up to 0.4 the commands took `--uri`; they take `--path` now.)
+
+## Neovim
+
+The same repository is a Neovim plugin: `lua/review_relay` and `plugin/review_relay.lua`, over the same review-relay. With [lazy.nvim](https://github.com/folke/lazy.nvim):
+
+```lua
+{
+  'statiolake/vscode-review-relay',
+  cmd = 'ReviewRelay',
+  event = 'VeryLazy', -- join a review already running for the directory
+  keys = {
+    { '<Leader>R', '<cmd>ReviewRelay<CR>', desc = 'Review Relay: panel' },
+    { '<Leader>rc', ':ReviewRelay comment<CR>', mode = { 'n', 'x' }, desc = 'Review Relay: comment' },
+  },
+  -- opts = { ... }, -- require('review_relay').setup(opts); see below
+}
+```
+
+lazy.nvim runs `build.lua` on install and update, which builds review-relay (the version `go.mod` pins) into `bin/`; it needs [Go](https://go.dev/dl/). `:Lazy build vscode-review-relay` builds it again.
+
+- `:ReviewRelay [git diff args]` opens the panel, joining the review running for the current directory or starting one (for the diff args; none: the files) that stops when Neovim exits. In it: `j`/`k`, `<CR>` open a file or thread (a directory folds, the filter turns), `<Space>` reviewed, `r` reply, `s` resolve / reopen, `f` filter, `o` overall comment, `R` refresh, `q` close.
+- `:ReviewRelay comment` comments on the cursor line, or on a visual range. The comment is written in a markdown buffer in a float under the lines: `<C-s>` or `:w` sends, `q` or `:q` drops it; leaving it keeps the draft.
+- On a thread's lines, `r` replies and `s` resolves or reopens (elsewhere they are `r` and `s`). `]r` / `[r` go to the next / previous open thread, across files. `:ReviewRelay reply | resolve | edit | delete | overall | next | prev | refresh | stop` do the same as commands.
+- A thread belongs to its file's buffer: it shows in every window on it, a window in diff mode too, follows your edits (and tells the review where its lines went), and a reply or an agent's comment shows at once. A buffer that is no file of the work tree (an old revision's scratch buffer) takes no comments, and says so.
+- In DevHub's GUI (with [devhub.nvim](https://github.com/statiolake/devhub.nvim)), a thread is a card under its last line — the comments in markdown, who wrote them, Reply and Resolve with their keys — and the panel is drawn. Elsewhere a thread is virt_lines under its last line and a sign, and the panel is the same buffer as text; everything works the same.
+
+```lua
+require('review_relay').setup {
+  cmd = nil,            -- review-relay; nil: the one build.lua built
+  auto_attach = true,   -- join a running review at startup and on :cd (never starts one)
+  author = nil,         -- your name; nil: git config user.name
+  width = 54,           -- the panel's width
+  thread_keys = { reply = 'r', resolve = 's' }, -- on a thread's lines; false: none
+  keys = { next = ']r', prev = '[r' },           -- in the review's file buffers; false: none
+  notify = true,        -- a notification when the agent answers
+  colors = { agent = 'Function', human = 'DiagnosticInfo', waiting = 'DiagnosticWarn', resolved = 'Comment', ok = 'DiagnosticOk' },
+}
+```
+
+Neovim 0.9 or later.
 
 ## Development
 
 ```bash
 npm install
-npm test
+npm test        # builds review-relay into bin/, the extension's tests, and tests/nvim (headless Neovim)
 npm run build
 ```
 
-Press F5 in VS Code to launch an Extension Development Host. `npm run package` builds the cross-platform CLIs and creates a VSIX.
-
-Each reply must specify the current document URI and start line. The entire thread moves to that location, including across file renames. End line defaults to the start line.
+Building needs Go: `npm run build:cli` builds review-relay without cgo for this platform (`--all`: every platform the VSIX ships). Press F5 in VS Code to launch an Extension Development Host. `npm run package` builds the cross-platform CLIs and creates a VSIX. `tests/nvim/run.sh` (`NVIM=…` for another Neovim) runs the Neovim plugin against the built review-relay.

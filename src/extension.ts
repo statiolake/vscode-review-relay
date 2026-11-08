@@ -1,77 +1,93 @@
 import * as vscode from "vscode";
-import { CommentServer } from "./server";
-import { CommentStore } from "./store";
+import { CommentStore, ReviewBackend } from "./store";
 import { VsCodeComments } from "./vscodeComments";
-import { AgentWorkspaceFolder, createAgentInstructions } from "./agentInstructions";
 import { VsCodeNavigationService } from "./navigation";
 import { renderReviewMarkdown } from "./markdown";
 import { ReviewViewProvider } from "./reviewView";
 import { CommentsTreeElement, CommentsTreeProvider } from "./commentsTree";
-import { SessionRegistration } from "./sessionRegistry";
-import { createWorkspacePersistence, resetWorkspaceData } from "./workspacePersistence";
 import { CursorCommands } from "./cursorCommands";
+import { RelayConnection } from "./relay";
+import { importLegacyState } from "./migration";
 
+/**
+ * The VS Code frontend of a review. The review is review-relay's: each file
+ * workspace folder is attached to its review-relay server (relay.ts), which
+ * keeps, validates and stores the threads and tells every client of a
+ * change. This extension shows them with VS Code's comment UI and writes
+ * what the person does back through the same API.
+ */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  let store: CommentStore;
-  try {
-    store = new CommentStore(createWorkspacePersistence(context.workspaceState));
-  } catch (error) {
-    await offerCorruptStateReset(context, error);
-    return;
-  }
-  const comments = new VsCodeComments(store);
-  const navigation = new VsCodeNavigationService();
-  const server = new CommentServer(store, navigation);
-
-  let port: number;
-  try {
-    port = await server.start(0);
-  } catch (error) {
-    void vscode.window.showErrorMessage(`Review Relay could not start its local API: ${error instanceof Error ? error.message : error}`);
-    comments.dispose();
-    return;
-  }
-
-  const cliEndpoint = `http://127.0.0.1:${port}`;
-  const endpoint = (await vscode.env.asExternalUri(vscode.Uri.parse(cliEndpoint))).toString();
-  const session = new SessionRegistration(endpoint);
-  const workspaceFolders = (): AgentWorkspaceFolder[] => (vscode.workspace.workspaceFolders ?? [])
-    .map(folder => ({
-      uri: folder.uri.toString(),
-      ...(folder.uri.scheme === "file" ? { localPath: folder.uri.fsPath } : {})
-    }));
-  const workspacePaths = () => workspaceFolders()
-    .flatMap(folder => folder.localPath ? [folder.localPath] : []);
-  try {
-    await session.update(workspacePaths());
-  } catch (error) {
-    await server.stop();
-    comments.dispose();
-    void vscode.window.showErrorMessage(`Review Relay could not register its local session: ${error instanceof Error ? error.message : error}`);
-    return;
-  }
   const cliPlatform = process.platform === "win32" ? "windows" : process.platform;
   const cliArch = process.arch === "x64" ? "amd64" : process.arch;
   const cliName = process.platform === "win32" ? "review-relay.exe" : "review-relay";
   const cliPath = context.asAbsolutePath(`bin/${cliPlatform}-${cliArch}/${cliName}`);
+
+  const store = new CommentStore();
+  const comments = new VsCodeComments(store);
+  const navigation = new VsCodeNavigationService();
+  const attachedFolders = new Map<string, { relay: RelayConnection; backend: ReviewBackend; dispose(): void }>();
+
+  const attachFolder = async (folder: vscode.WorkspaceFolder): Promise<void> => {
+    const key = folder.uri.toString();
+    if (folder.uri.scheme !== "file" || attachedFolders.has(key)) return;
+    const relay = new RelayConnection(cliPath, folder.uri.fsPath);
+    try {
+      await relay.attached();
+    } catch (error) {
+      relay.dispose();
+      void vscode.window.showErrorMessage(`Review Relay could not open the review of ${folder.name}: ${error instanceof Error ? error.message : error}`);
+      return;
+    }
+    const backend: ReviewBackend = {
+      folderUri: key,
+      request: (method, path, body) => relay.request(method, path, body),
+      onEvent: listener => relay.onEvent(listener)
+    };
+    const registration = await store.addFolder(backend);
+    relay.onDidAttach(() => updateStatus());
+    attachedFolders.set(key, { relay, backend, dispose: () => { registration.dispose(); relay.dispose(); } });
+    updateStatus();
+    try {
+      const dropped = await importLegacyState(context.workspaceState, [...attachedFolders.values()].map(entry => entry.backend));
+      if (dropped !== undefined) {
+        void vscode.window.showInformationMessage(dropped > 0
+          ? `Review Relay moved this workspace's comments into review-relay; ${dropped} outside the workspace folders were dropped.`
+          : "Review Relay moved this workspace's comments into review-relay.");
+      }
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Review Relay could not move this workspace's earlier comments: ${error instanceof Error ? error.message : error}`);
+    }
+  };
+  const detachFolder = (folder: vscode.WorkspaceFolder): void => {
+    attachedFolders.get(folder.uri.toString())?.dispose();
+    attachedFolders.delete(folder.uri.toString());
+    updateStatus();
+  };
+  const primary = () => [...attachedFolders.values()][0]?.relay.current;
+
+  const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 20);
+  status.text = "$(comment-discussion) Review Relay";
+  status.command = "reviewRelay.copyEndpoint";
+  const updateStatus = () => {
+    const endpoints = [...attachedFolders.values()].flatMap(entry => entry.relay.current ? [entry.relay.current.endpoint] : []);
+    status.tooltip = endpoints.length > 0 ? `Live comment API: ${endpoints.join(", ")}` : "Review Relay: no folder attached";
+    if (endpoints.length > 0) status.show();
+    else status.hide();
+  };
+
   const reviewView = new ReviewViewProvider(store);
   const commentsTree = new CommentsTreeProvider(store);
   const cursor = new CursorCommands(store, comments);
   const copyAgentInstructions = async () => {
-    const instructions = createAgentInstructions({
-      endpoint,
-      cliEndpoint,
-      cliPath,
-      workspaceFolders: workspaceFolders()
-    });
-    await vscode.env.clipboard.writeText(instructions);
+    const texts = await Promise.all([...attachedFolders.values()].map(async entry =>
+      (await entry.backend.request<{ text: string }>("GET", "/v1/instructions")).text));
+    if (texts.length === 0) {
+      void vscode.window.showWarningMessage("Review Relay: open a folder to review first.");
+      return;
+    }
+    await vscode.env.clipboard.writeText(texts.join("\n\n---\n\n"));
     void vscode.window.showInformationMessage("Copied Review Relay agent instructions.");
   };
-  const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 20);
-  status.text = "$(comment-discussion) Review Relay";
-  status.tooltip = `Live comment API: ${endpoint}`;
-  status.command = "reviewRelay.copyEndpoint";
-  status.show();
 
   context.subscriptions.push(
     comments,
@@ -79,11 +95,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     commentsTree,
     cursor,
     status,
-    { dispose: () => { void session.dispose(); void server.stop(); } },
-    vscode.workspace.onDidChangeWorkspaceFolders(() => {
-      void session.update(workspacePaths()).catch(error => {
-        void vscode.window.showErrorMessage(`Review Relay could not update its local session: ${error instanceof Error ? error.message : error}`);
-      });
+    { dispose: () => { attachedFolders.forEach(entry => entry.dispose()); attachedFolders.clear(); } },
+    vscode.workspace.onDidChangeWorkspaceFolders(event => {
+      event.removed.forEach(detachFolder);
+      event.added.forEach(folder => void attachFolder(folder));
+    }),
+    store.onDidNavigate(target => {
+      void navigation.navigate(target, "external").then(
+        () => { if (target.commentId) comments.expandThread(target.commentId); },
+        error => void vscode.window.showErrorMessage(`Review Relay could not open ${target.uri}: ${error instanceof Error ? error.message : error}`)
+      );
     }),
     vscode.window.registerWebviewViewProvider(ReviewViewProvider.viewType, reviewView, {
       webviewOptions: { retainContextWhenHidden: true }
@@ -135,6 +156,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       await vscode.env.clipboard.writeText(id);
     }),
     vscode.commands.registerCommand("reviewRelay.copyEndpoint", async () => {
+      const endpoint = primary()?.endpoint;
+      if (!endpoint) return;
       await vscode.env.clipboard.writeText(endpoint);
       void vscode.window.showInformationMessage(`Copied ${endpoint}`);
     }),
@@ -156,6 +179,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (answer === "Delete All") await store.clear();
     })
   );
+  await Promise.all((vscode.workspace.workspaceFolders ?? []).map(attachFolder));
 }
 
 export function deactivate(): void {}
@@ -166,23 +190,4 @@ function commentIdOf(target: unknown): string | undefined {
   if ("kind" in target && (target.kind === "thread" || target.kind === "comment")
     && "id" in target && typeof target.id === "string") return target.id;
   return undefined;
-}
-
-async function offerCorruptStateReset(context: vscode.ExtensionContext, error: unknown): Promise<void> {
-  const reason = error instanceof Error ? error.message : String(error);
-  const action = await vscode.window.showErrorMessage(
-    `Review Relay could not load this workspace because its stored data is corrupted. ${reason}`,
-    "Reset Project Data"
-  );
-  if (action !== "Reset Project Data") return;
-
-  try {
-    await resetWorkspaceData(context.workspaceState);
-  } catch (resetError) {
-    const resetReason = resetError instanceof Error ? resetError.message : String(resetError);
-    await vscode.window.showErrorMessage(`Review Relay could not reset the corrupted workspace data. ${resetReason}`);
-    return;
-  }
-
-  await vscode.commands.executeCommand("workbench.action.reloadWindow");
 }

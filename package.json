@@ -1,7 +1,7 @@
 {
   "name": "vscode-review-relay",
   "displayName": "Review Relay",
-  "description": "Live review comments shared between VS Code and local AI tools.",
+  "description": "Live review comments shared between VS Code (or Neovim) and local AI tools, through review-relay.",
   "version": "0.4.3",
   "publisher": "statiolake",
   "license": "MIT",
@@ -324,14 +324,14 @@
     "package": "vsce package",
     "publish": "npm run publish:vsce && npm run publish:ovsx",
     "check": "tsc --noEmit",
-    "test": "npm run test:compile && node --test dist-test/test/**/*.test.js && go test ./...",
+    "test": "npm run build:cli && npm run test:compile && node --test dist-test/test/**/*.test.js && npm run test:nvim",
+    "test:nvim": "tests/nvim/run.sh",
     "test:compile": "tsc -p tsconfig.test.json",
     "publish:vsce": "vsce publish",
     "publish:ovsx": "ovsx publish"
   },
   "dependencies": {
-    "vscode-uri": "^3.1.0",
-    "zod": "^4.4.3"
+    "vscode-uri": "^3.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import Module from "node:module";
 import test from "node:test";
-import { CommentStore } from "../src/store";
+import { review } from "./review";
 
 const api = {
   EventEmitter: class {
@@ -31,9 +31,11 @@ try {
 }
 
 test("keeps missing-file comments accessible and refreshes the tree after deletion", async () => {
-  const store = new CommentStore({ load: () => ({ comments: [], overall: "Keep overall" }), save: async () => {} });
-  const root = await store.add({ uri: "file:///nonexistent/moved-away.ts", line: 10, body: "Orphaned" });
-  const reply = await store.reply(root.id, { uri: "file:///nonexistent/moved-away.ts", line: 10, body: "Reply" });
+  const r = await review();
+  const store = r.store;
+  await store.setOverall("Keep overall");
+  const root = await store.add({ uri: r.uri("moved-away.ts"), line: 10, body: "Orphaned" });
+  const reply = await store.reply(root.id, { uri: r.uri("moved-away.ts"), line: 10, body: "Reply" });
   const tree = new Tree(store);
   let refreshes = 0;
   tree.onDidChangeTreeData(() => refreshes++);
@@ -49,32 +51,35 @@ test("keeps missing-file comments accessible and refreshes the tree after deleti
     await store.remove(reply!.id);
     assert.deepEqual(tree.getChildren(thread), []);
     assert.equal(tree.getTreeItem(thread).collapsibleState, api.TreeItemCollapsibleState.None);
-    await store.reply(root.id, { uri: "file:///nonexistent/moved-away.ts", line: 10, body: "Another reply" });
+    await store.reply(root.id, { uri: r.uri("moved-away.ts"), line: 10, body: "Another reply" });
     await store.remove(root.id);
     assert.deepEqual(tree.getChildren(), []);
     assert.equal(refreshes, 3);
     assert.equal(store.getOverall(), "Keep overall");
   } finally {
     tree.dispose();
+    r.close();
   }
 });
 
 test("hides resolved threads and files left with only resolved threads", async () => {
-  const store = new CommentStore({ load: () => ({ comments: [], overall: "" }), save: async () => {} });
-  const open = await store.add({ uri: "file:///a.ts", line: 1, body: "Open" });
-  const done = await store.add({ uri: "file:///a.ts", line: 2, body: "Done" });
-  const other = await store.add({ uri: "file:///b.ts", line: 1, body: "Other" });
+  const r = await review();
+  const store = r.store;
+  const open = await store.add({ uri: r.uri("a.ts"), line: 1, body: "Open" });
+  const done = await store.add({ uri: r.uri("a.ts"), line: 2, body: "Done" });
+  const other = await store.add({ uri: r.uri("b.ts"), line: 1, body: "Other" });
   await store.setResolved(done.id, true);
   await store.setResolved(other.id, true);
   const tree = new Tree(store);
   try {
     const files = tree.getChildren();
-    assert.deepEqual(files, [{ kind: "file", uri: "file:///a.ts" }]);
+    assert.deepEqual(files, [{ kind: "file", uri: r.uri("a.ts") }]);
     assert.deepEqual(tree.getChildren(files[0]), [{ kind: "thread", id: open.id }]);
     assert.equal(tree.getTreeItem(files[0]).description, "1 thread");
     await store.setResolved(other.id, false);
     assert.equal(tree.getChildren().length, 2);
   } finally {
     tree.dispose();
+    r.close();
   }
 });
