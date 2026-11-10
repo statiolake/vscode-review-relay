@@ -2,7 +2,7 @@
   "name": "vscode-review-relay",
   "displayName": "Review Relay",
   "description": "Live review comments shared between VS Code (or Neovim) and local AI tools.",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "publisher": "statiolake",
   "license": "MIT",
   "author": "statiolake",

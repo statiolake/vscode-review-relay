@@ -106,7 +106,7 @@ The same repository is a Neovim plugin: `lua/review_relay` and `plugin/review_re
 }
 ```
 
-lazy.nvim runs `build.lua` on install and update, which puts the core into `bin/`; for now it builds it from the plugin's own source, which needs [Go](https://go.dev/dl/). `:Lazy build vscode-review-relay` builds it again.
+lazy.nvim runs `build.lua` on install and update, which puts the core into `bin/` (`:Lazy build vscode-review-relay` puts it there again). It downloads the prebuilt core of the plugin's version from its [GitHub release](https://github.com/statiolake/vscode-review-relay/releases) (macOS, Linux and Windows, x86_64 and arm64), checked against the release's `SHA256SUMS`, with `curl` and `tar`. It builds the core from the plugin's own source instead, which needs [Go](https://go.dev/dl/), when the checkout's core differs from the release's (a commit past the release) and Go is installed, when the download fails or the platform has no prebuilt core, or when `vim.g.review_relay_build = 'source'` (or `REVIEW_RELAY_BUILD=source`); `'prebuilt'` always takes the release's.
 
 - `:ReviewRelay` opens the panel — the files with threads, the threads, the overall comment — joining the review running for the current directory or starting one that stops when Neovim exits. In it: `j`/`k`, `<CR>` open a file or thread (a directory folds, the filter turns), `r` reply, `s` resolve / reopen, `f` filter, `o` overall comment, `R` refresh, `q` close.
 - `:ReviewRelay comment` comments on the cursor line, or on a visual range. The comment is written in a markdown buffer in a float under the lines: `<C-s>` or `:w` sends, `q` or `:q` drops it; leaving it keeps the draft.
@@ -138,4 +138,4 @@ go test ./...   # the core
 npm run build
 ```
 
-Building needs Go: `npm run build:cli` builds the core (`cmd/review-relay`) without cgo for this platform (`--all`: every platform the VSIX ships). Press F5 in VS Code to launch an Extension Development Host. `npm run package` builds the cross-platform binaries and creates a VSIX. `tests/nvim/run.sh` (`NVIM=…` for another Neovim) runs the Neovim plugin against the built core.
+Building needs Go: `npm run build:cli` builds the core (`cmd/review-relay`) without cgo for this platform (`--all`: every platform the VSIX ships). Press F5 in VS Code to launch an Extension Development Host. `npm run package` builds the cross-platform binaries and creates a VSIX. `tests/nvim/run.sh` (`NVIM=…` for another Neovim) runs the Neovim plugin against the built core. Pushing a `v<version>` tag (package.json's version) runs `.github/workflows/release.yml`, which builds the prebuilt cores with `scripts/release-assets.sh` and publishes them with `SHA256SUMS` as the tag's GitHub release, the tag's message as its notes.

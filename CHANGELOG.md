@@ -8,6 +8,7 @@
 - Reviews are stored in `<user config dir>/vscode-review-relay/workspaces/<hash>/`. A review kept in the workspace state by an earlier version is moved there once, with its ids; comments outside the workspace folders are dropped and counted. **Reset Project Data** is gone: a corrupted file is named, to move away.
 - Comments belong to files inside the workspace's file folders; the overall comment is the first folder's.
 - A Neovim plugin in the same repository (`lua/`, `plugin/`): threads on buffer lines, a panel, a composer, drawn as cards in DevHub's GUI and as virt_lines elsewhere. See the README.
+- The Neovim plugin's `build.lua` downloads the core from the GitHub release (`review-relay-<os>-<arch>.tar.gz`, checked against `SHA256SUMS`), or builds it with Go when the checkout is past the release or no prebuilt core fits. `review-relay version` prints the version.
 
 ## 0.4.3
 

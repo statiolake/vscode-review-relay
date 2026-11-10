@@ -17,6 +17,10 @@ import (
 	"github.com/statiolake/vscode-review-relay/internal/host"
 )
 
+// version is package.json's (test/manifest.test.ts checks it); build.lua
+// checks a prebuilt core by it.
+var version = "0.5.0"
+
 const usage = `Usage: review-relay COMMAND
 
 Review Relay's core, shipped with the VS Code extension and the Neovim
@@ -29,6 +33,9 @@ Editor frontends:
   review-relay serve [--workspace PATH]
   Run the review of PATH's workspace (default: the current directory) until
   interrupted, with no editor; prints its endpoint.
+
+  review-relay version
+  Print the version.
 
 ` + cli.Usage
 
@@ -43,6 +50,9 @@ func run(args []string) error {
 	switch {
 	case len(args) == 0 || slices.Contains([]string{"-h", "--help", "help"}, args[0]):
 		fmt.Println(usage)
+		return nil
+	case len(args) == 1 && (args[0] == "version" || args[0] == "--version"):
+		fmt.Println(version)
 		return nil
 	case args[0] == "attach":
 		dir, rest, err := workspaceFlag(args[1:])

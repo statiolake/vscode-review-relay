@@ -63,3 +63,8 @@ test("offers resolve and reopen on the native thread title", () => {
   assert.ok(title.some(item => item.command === "reviewRelay.unresolveThread"
     && item.when === "commentController == review-relay && commentThread == resolved"));
 });
+
+test("the core reports the extension's version", () => {
+  const { version } = JSON.parse(readFileSync("package.json", "utf8")) as { version: string };
+  assert.match(readFileSync("cmd/review-relay/main.go", "utf8"), new RegExp(`var version = "${version.replace(/\./g, "\\.")}"`));
+});

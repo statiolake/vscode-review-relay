@@ -45,10 +45,16 @@ and the agent CLI in one executable, without cgo:
 - It cross-compiles from anywhere, and nobody who installs the extension or
   the plugin needs Go or Node: the VSIX carries a build per platform in
   `bin/<os>-<arch>/`, and `build.lua` puts one at the same place for
-  lazy.nvim. `build.lua` builds it from this checkout's source for now
-  (needs Go); a prebuilt binary fetched per platform and checked by sha256
-  replaces its `from_source` step and nothing else, since the frontends only
-  look for the executable at that path.
+  lazy.nvim. `build.lua` installs the prebuilt core of the plugin's
+  version: tag `v<version>` (package.json's) has a GitHub release with
+  `review-relay-<os>-<arch>.tar.gz` per platform and their `SHA256SUMS`,
+  built and published by `.github/workflows/release.yml`
+  (`scripts/release-assets.sh`) when the tag is pushed; it checks the
+  archive's sha256 and that the core reports the version. It builds the core
+  from this checkout's source with Go instead when the checkout's `cmd/`,
+  `internal/`, `go.mod` or `go.sum` differ from the tag's, or when there is
+  no prebuilt core to install. The frontends only look for the executable at
+  that path.
 
 ## The pieces
 
