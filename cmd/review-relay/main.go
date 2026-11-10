@@ -17,8 +17,8 @@ import (
 	"github.com/statiolake/vscode-review-relay/internal/host"
 )
 
-// version is package.json's (test/manifest.test.ts checks it); build.lua
-// checks a prebuilt core by it.
+// version is package.json's (test/manifest.test.ts checks it, and
+// .github/workflows/bin-check.yml checks the committed core by it).
 var version = "0.5.0"
 
 const usage = `Usage: review-relay COMMAND

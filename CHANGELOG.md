@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The Neovim plugin carries the core prebuilt for every platform the VSIX ships (macOS, Linux and Windows; x86_64 and arm64) in `bin/`, committed, and runs the one for its platform: installing it (lazy.nvim, or copying its directory) needs no build step, Go, curl or network. `build.lua` and the GitHub release of the cores are gone. On another platform the plugin says which ones it ships.
+- `scripts/build-bins.sh` rebuilds `bin/` reproducibly (`npm run build:cli` / `build:cli:all` run it); `.github/workflows/bin.yml` commits a rebuilt `bin/` to `main` when the core changes, and `bin-check.yml` fails a pull request whose `bin/` does not match its source.
+
 ## 0.5.0
 
 - The review has a core of its own in this repository: `review-relay`, one Go binary (bundled per platform in `bin/`) that runs the review's loopback server, `review-relay attach` for the editors, and the agent CLI. Each workspace folder attaches to its review; comments, replies, resolve, the overall comment and the agent instructions all go through it, so a review open in VS Code shows in Neovim and the other way round.

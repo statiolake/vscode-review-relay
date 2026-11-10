@@ -28,8 +28,8 @@ local compose = require 'review_relay.compose'
 local M = {}
 
 M.config = {
-  -- The core's executable; nil: the one build.lua put in this plugin
-  -- (bin/<os>-<arch>/review-relay), the same the VS Code extension ships.
+  -- The core's executable; nil: the one this plugin ships for this platform
+  -- (bin/<os>-<arch>/review-relay, committed), the same the VSIX carries.
   cmd = nil,
   -- Use a review that is already running for the directory (another
   -- editor, `review-relay serve`) when Neovim starts and when the directory
@@ -98,17 +98,38 @@ local function plugin_root()
   return vim.fn.fnamemodify(here, ':p:h:h:h')
 end
 
---- bin/<os>-<arch>/review-relay of this plugin, the layout build.lua and
---- the VS Code extension's build share.
+--- The platforms bin/ carries (scripts/build-bins.sh), the VSIX's too.
+M.platforms = { 'darwin-amd64', 'darwin-arm64', 'linux-amd64', 'linux-arm64', 'windows-amd64', 'windows-arm64' }
+
+--- The executable to run: config.cmd, else bin/<os>-<arch>/review-relay of
+--- this plugin, committed for every platform (nothing is built or
+--- downloaded). nil and why when there is none for this platform.
 function M.executable()
   if M.config.cmd then
     return M.config.cmd
   end
-  local uname = (vim.uv or vim.loop).os_uname()
+  local uv = vim.uv or vim.loop
+  local uname = uv.os_uname()
   local os_name = ({ Linux = 'linux', Darwin = 'darwin', Windows_NT = 'windows' })[uname.sysname] or uname.sysname:lower()
   local arch = ({ x86_64 = 'amd64', amd64 = 'amd64', arm64 = 'arm64', aarch64 = 'arm64' })[uname.machine] or uname.machine
+  local platform = os_name .. '-' .. arch
+  if not vim.tbl_contains(M.platforms, platform) then
+    return nil,
+      ('review-relay: no core for this platform (%s); this plugin ships %s. Build one with `scripts/build-bins.sh` from a checkout, or set cmd in setup()'):format(
+        platform,
+        table.concat(M.platforms, ', ')
+      )
+  end
   local name = os_name == 'windows' and 'review-relay.exe' or 'review-relay'
-  return table.concat({ plugin_root(), 'bin', os_name .. '-' .. arch, name }, '/')
+  local path = table.concat({ plugin_root(), 'bin', platform, name }, '/')
+  if vim.fn.filereadable(path) == 0 then
+    return nil, ('review-relay: %s is missing; the plugin\'s directory is incomplete (reinstall or copy it again)'):format(path)
+  end
+  if os_name ~= 'windows' and vim.fn.executable(path) == 0 then
+    -- A copy that dropped the mode bits (an archive, a file sync).
+    uv.fs_chmod(path, tonumber('755', 8))
+  end
+  return path
 end
 
 -- The review, as data -------------------------------------------------------------
@@ -547,9 +568,9 @@ function M.attach(opts, cb)
     end
     return
   end
-  local cmd = M.executable()
-  if not M.config.cmd and vim.fn.executable(cmd) == 0 then
-    local message = 'review-relay is not built in this plugin: run :Lazy build vscode-review-relay (needs Go)'
+  local cmd, why = M.executable()
+  if not cmd or (not M.config.cmd and vim.fn.executable(cmd) == 0) then
+    local message = why or ('review-relay: %s is not executable'):format(cmd)
     if not opts.quiet then
       notify(message, 'error')
     end

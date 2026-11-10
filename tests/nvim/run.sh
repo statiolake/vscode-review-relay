@@ -1,6 +1,6 @@
 #!/bin/sh
-# The Neovim frontend against the real review-relay (bin/, `npm run build:cli`
-# or build.lua): nvim --headless, a fresh git repository, its own sessions
+# The Neovim frontend against the real review-relay: the one the plugin
+# ships in bin/ (`npm run build:cli` rebuilds it from source): nvim --headless, a fresh git repository, its own sessions
 # and stored reviews. NVIM=path/to/nvim picks the Neovim (default: nvim).
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)

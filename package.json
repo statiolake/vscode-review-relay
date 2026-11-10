@@ -319,8 +319,8 @@
   "scripts": {
     "vscode:prepublish": "npm run check && npm run build:cli:all && esbuild src/extension.ts --bundle --minify --platform=node --external:vscode --outfile=dist/extension.js",
     "build": "npm run build:cli && esbuild src/extension.ts --bundle --platform=node --external:vscode --outfile=dist/extension.js",
-    "build:cli": "node scripts/build-cli.mjs",
-    "build:cli:all": "node scripts/build-cli.mjs --all",
+    "build:cli": "sh scripts/build-bins.sh host",
+    "build:cli:all": "sh scripts/build-bins.sh",
     "package": "vsce package",
     "publish": "npm run publish:vsce && npm run publish:ovsx",
     "check": "tsc --noEmit",

@@ -43,18 +43,17 @@ and the agent CLI in one executable, without cgo:
   `attach` come with it at no cost, and one binary means one version on both
   ends of every pipe.
 - It cross-compiles from anywhere, and nobody who installs the extension or
-  the plugin needs Go or Node: the VSIX carries a build per platform in
-  `bin/<os>-<arch>/`, and `build.lua` puts one at the same place for
-  lazy.nvim. `build.lua` installs the prebuilt core of the plugin's
-  version: tag `v<version>` (package.json's) has a GitHub release with
-  `review-relay-<os>-<arch>.tar.gz` per platform and their `SHA256SUMS`,
-  built and published by `.github/workflows/release.yml`
-  (`scripts/release-assets.sh`) when the tag is pushed; it checks the
-  archive's sha256 and that the core reports the version. It builds the core
-  from this checkout's source with Go instead when the checkout's `cmd/`,
-  `internal/`, `go.mod` or `go.sum` differ from the tag's, or when there is
-  no prebuilt core to install. The frontends only look for the executable at
-  that path.
+  the plugin needs Go or Node. The builds are committed, one per platform
+  in `bin/<os>-<arch>/` (darwin, linux and windows; amd64 and arm64), and
+  both frontends run the one for their platform from there: the VSIX packs
+  `bin/`, and the Neovim plugin is installed (by lazy.nvim, or by copying
+  its directory, to an SSH host for instance) with no build step, Go or
+  network. `scripts/build-bins.sh` builds them reproducibly (no cgo,
+  `-trimpath`, no VCS stamp, stripped, one pinned Go release), so a fresh
+  build of the source is byte for byte the committed one:
+  `.github/workflows/bin-check.yml` checks that, and
+  `.github/workflows/bin.yml` commits a rebuilt `bin/` to `main` when a
+  push there changes the core's source without it.
 
 ## The pieces
 

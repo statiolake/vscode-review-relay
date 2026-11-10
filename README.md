@@ -106,7 +106,7 @@ The same repository is a Neovim plugin: `lua/review_relay` and `plugin/review_re
 }
 ```
 
-lazy.nvim runs `build.lua` on install and update, which puts the core into `bin/` (`:Lazy build vscode-review-relay` puts it there again). It downloads the prebuilt core of the plugin's version from its [GitHub release](https://github.com/statiolake/vscode-review-relay/releases) (macOS, Linux and Windows, x86_64 and arm64), checked against the release's `SHA256SUMS`, with `curl` and `tar`. It builds the core from the plugin's own source instead, which needs [Go](https://go.dev/dl/), when the checkout's core differs from the release's (a commit past the release) and Go is installed, when the download fails or the platform has no prebuilt core, or when `vim.g.review_relay_build = 'source'` (or `REVIEW_RELAY_BUILD=source`); `'prebuilt'` always takes the release's.
+The plugin carries the core prebuilt for every platform the VSIX ships (macOS, Linux and Windows; x86_64 and arm64) in `bin/<os>-<arch>/review-relay`, committed to the repository, and runs the one for the platform it is on. Installing it is only getting the files: lazy.nvim needs no `build`, and copying the plugin's directory to another machine (an SSH host, say) is enough there too, with no Go, compiler or network. On another platform it says which ones it has; build a core with `scripts/build-bins.sh` from a checkout, or point `cmd` (below) at one.
 
 - `:ReviewRelay` opens the panel — the files with threads, the threads, the overall comment — joining the review running for the current directory or starting one that stops when Neovim exits. In it: `j`/`k`, `<CR>` open a file or thread (a directory folds, the filter turns), `r` reply, `s` resolve / reopen, `f` filter, `o` overall comment, `R` refresh, `q` close.
 - `:ReviewRelay comment` comments on the cursor line, or on a visual range. The comment is written in a markdown buffer in a float under the lines: `<C-s>` or `:w` sends, `q` or `:q` drops it; leaving it keeps the draft.
@@ -116,7 +116,7 @@ lazy.nvim runs `build.lua` on install and update, which puts the core into `bin/
 
 ```lua
 require('review_relay').setup {
-  cmd = nil,            -- the core's executable; nil: the one build.lua put in bin/
+  cmd = nil,            -- the core's executable; nil: bin/<os>-<arch>/review-relay of the plugin
   auto_attach = true,   -- join a running review at startup and on :cd (never starts one)
   author = nil,         -- your name; nil: git config user.name
   width = 54,           -- the panel's width
@@ -138,4 +138,6 @@ go test ./...   # the core
 npm run build
 ```
 
-Building needs Go: `npm run build:cli` builds the core (`cmd/review-relay`) without cgo for this platform (`--all`: every platform the VSIX ships). Press F5 in VS Code to launch an Extension Development Host. `npm run package` builds the cross-platform binaries and creates a VSIX. `tests/nvim/run.sh` (`NVIM=…` for another Neovim) runs the Neovim plugin against the built core. Pushing a `v<version>` tag (package.json's version) runs `.github/workflows/release.yml`, which builds the prebuilt cores with `scripts/release-assets.sh` and publishes them with `SHA256SUMS` as the tag's GitHub release, the tag's message as its notes.
+Building needs Go: `npm run build:cli` builds the core (`cmd/review-relay`) for this platform into `bin/`, and `npm run build:cli:all` (`scripts/build-bins.sh`) for every platform the VSIX ships; `scripts/build-bins.sh --check` fails unless `bin/` is what the source builds. Press F5 in VS Code to launch an Extension Development Host. `npm run package` builds the cross-platform binaries and creates a VSIX. `tests/nvim/run.sh` (`NVIM=…` for another Neovim) runs the Neovim plugin against the core in `bin/`.
+
+`bin/` is committed: it is what installs run. After changing the core (`cmd/`, `internal/`, `go.mod`, `go.sum`), run `scripts/build-bins.sh` and commit `bin/` with the change. The build is reproducible (no cgo, `-trimpath`, no VCS stamp, stripped, one pinned Go release that Go fetches if yours differs), so the same source gives the same bytes on any machine. On `main`, `.github/workflows/bin.yml` does it for you: a push that changes the core and not `bin/` gets a bot commit with the rebuilt `bin/`. `.github/workflows/bin-check.yml` fails a pull request (or a push touching `bin/`) whose `bin/` is not what its source builds. With lazy.nvim on a checkout of your own (`dir = …`), `build = 'scripts/build-bins.sh host'` rebuilds the core there on each update.

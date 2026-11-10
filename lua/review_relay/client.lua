@@ -55,7 +55,7 @@ function Client.start(opts)
   if not ok or job <= 0 then
     vim.schedule(function()
       if opts.on_exit then
-        opts.on_exit(('cannot run %s: is it built? (:Lazy build vscode-review-relay)'):format(opts.cmd))
+        opts.on_exit(('cannot run %s'):format(opts.cmd))
       end
     end)
     return self
